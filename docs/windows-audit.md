@@ -5,9 +5,11 @@ detected Windows setting change without storing the setting value. It is an
 explicit, opt-in capability under development.
 
 > [!IMPORTANT]
-> This release performs **zero Windows system reads**. It has no background
-> process, provider, command execution, elevation, remediation, telemetry, or
-> network access. The module only validates an in-memory JSON-compatible object.
+> Windows reads are **off by default**. There is no background process, command
+> execution, elevation, remediation, telemetry, or network access. The contract
+> parser only validates an in-memory JSON-compatible object. The optional
+> Registry provider described below performs one narrow read only after explicit
+> opt-in.
 
 ## Trust states
 
@@ -73,9 +75,30 @@ calling the provider.
 
 Providers implement the small `WindowsSnapshotProvider` protocol and may return
 only a redacted `StateSummary`. Their result is always labeled `observed`; a
-provider cannot claim independent verification. No built-in Registry, service,
-firewall, or policy provider exists yet, so this interface still performs no host
-read on its own.
+provider cannot claim independent verification.
+
+### Registry key-presence provider
+
+`RegistryKeyPresenceProvider` is the first deliberately narrow built-in adapter.
+It accepts `HKCU` / `HKEY_CURRENT_USER` key paths and reports only whether the key
+exists. It calls `winreg.OpenKey` with `KEY_READ` and closes the handle; it never
+calls a Registry value query or write API. Missing keys, access-denied errors, and
+other OS errors remain distinct outcomes.
+
+```python
+from mcp_guard.windows_providers import collect_windows_snapshot
+from mcp_guard.windows_registry import RegistryKeyPresenceProvider
+
+snapshot = collect_windows_snapshot(
+    RegistryKeyPresenceProvider(),
+    "HKCU\\Software\\SyntheticDemo",
+    enabled=True,
+)
+```
+
+There is no CLI or automatic discovery path yet. Importing the module does not
+read the Registry. Service, firewall, policy, and Registry-value adapters remain
+unimplemented.
 
 Historical JSONL and HTML filtering will consume records only after the concrete
 provider and independent comparison boundaries are implemented and tested.

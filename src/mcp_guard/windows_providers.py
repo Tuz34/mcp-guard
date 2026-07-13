@@ -24,6 +24,10 @@ class ProviderContractError(WindowsProviderError):
     """Raised when a provider violates the summary-only contract."""
 
 
+class ProviderReadError(WindowsProviderError):
+    """Raised when a read-only provider cannot produce a trustworthy summary."""
+
+
 class WindowsSnapshotProvider(Protocol):
     """Interface for a future, explicitly invoked read-only Windows adapter."""
 

@@ -15,6 +15,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   performs no system reads.
 - Explicit opt-in provider interface that stays closed before platform or provider
   access and cannot label a provider observation as verified.
+- Narrow HKCU Registry key-presence provider that uses read-only key access and
+  never queries or writes Registry values.
 
 ### Fixed
 
