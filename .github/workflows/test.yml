@@ -21,5 +21,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install -e ".[dev]"
       - run: pytest
+      - name: Read-only Windows integration checks
+        if: runner.os == 'Windows'
+        env:
+          MCP_GUARD_WINDOWS_INTEGRATION: "1"
+        run: pytest tests/test_windows_integration.py
       - run: ruff check .
       - run: ruff format --check .

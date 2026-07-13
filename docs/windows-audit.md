@@ -233,3 +233,9 @@ Windows surfaces, if any, must be separately allowlisted in later versions.
 
 All examples in [`examples/windows-audit`](../examples/windows-audit) are
 synthetic and contain no user or machine data.
+
+The default test suite uses synthetic backends. A separate Windows CI step sets
+`MCP_GUARD_WINDOWS_INTEGRATION=1` and performs read-only checks against the fixed
+`EventLog` service, `HKCU\Control Panel\Desktop`, the public firewall profile,
+and the long-path policy. This validates the ctypes structure and 64-bit HKLM
+Registry view on a disposable GitHub-hosted runner without changing system state.
