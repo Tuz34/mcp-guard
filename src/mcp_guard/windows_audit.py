@@ -41,7 +41,22 @@ _RAW_VALUE_FIELDS = frozenset(
         "after_hash",
     }
 )
-_ALLOWED_STATE_FIELDS = frozenset({"present", "redacted"})
+SAFE_FACT_VALUES: dict[str, frozenset[str]] = {
+    "runtime_state": frozenset(
+        {
+            "stopped",
+            "start_pending",
+            "stop_pending",
+            "running",
+            "continue_pending",
+            "pause_pending",
+            "paused",
+        }
+    ),
+    "startup_type": frozenset({"boot", "system", "automatic", "manual", "disabled"}),
+    "policy_state": frozenset({"enabled", "disabled", "not_configured"}),
+}
+_ALLOWED_STATE_FIELDS = frozenset({"present", "redacted", "facts"})
 _ALLOWED_RECORD_FIELDS = frozenset(
     {
         "schema_version",
@@ -63,10 +78,17 @@ _ALLOWED_RECORD_FIELDS = frozenset(
 
 @dataclass(frozen=True)
 class StateSummary:
-    """Presence-only state: actual Windows values never enter the audit record."""
+    """Redacted presence plus allowlisted normalized facts."""
 
     present: bool | None
+    facts: tuple[tuple[str, str], ...] = ()
     redacted: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {"present": self.present, "redacted": self.redacted}
+        if self.facts:
+            data["facts"] = dict(self.facts)
+        return data
 
 
 @dataclass(frozen=True)
@@ -98,14 +120,8 @@ class WindowsAuditRecord:
             "target": self.target,
             "operation": self.operation,
             "change": self.change,
-            "before": {
-                "present": self.before.present,
-                "redacted": self.before.redacted,
-            },
-            "after": {
-                "present": self.after.present,
-                "redacted": self.after.redacted,
-            },
+            "before": self.before.to_dict(),
+            "after": self.after.to_dict(),
         }
         if self.actor is not None:
             data["actor"] = self.actor
@@ -156,7 +172,21 @@ def _state_summary(action: dict[str, Any], field: str) -> StateSummary:
         raise InputError(f"windows_setting.{field}.present must be true, false, or null.")
     if "redacted" in value and value["redacted"] is not True:
         raise InputError(f"windows_setting.{field}.redacted must be true when provided.")
-    return StateSummary(present=value["present"])
+
+    facts_value = value.get("facts", {})
+    if not isinstance(facts_value, dict):
+        raise InputError(f"windows_setting.{field}.facts must be an object when provided.")
+    facts: list[tuple[str, str]] = []
+    for name, fact_value in facts_value.items():
+        if name not in SAFE_FACT_VALUES:
+            raise InputError(f"Unsupported windows_setting.{field}.facts key '{name}'.")
+        if not isinstance(fact_value, str) or fact_value not in SAFE_FACT_VALUES[name]:
+            choices = ", ".join(sorted(SAFE_FACT_VALUES[name]))
+            raise InputError(f"windows_setting.{field}.facts.{name} must be one of: {choices}.")
+        facts.append((name, fact_value))
+    if value["present"] is not True and facts:
+        raise InputError(f"windows_setting.{field}.facts require present=true.")
+    return StateSummary(present=value["present"], facts=tuple(sorted(facts)))
 
 
 def _validate_verified_change(change: str, before: StateSummary, after: StateSummary) -> None:

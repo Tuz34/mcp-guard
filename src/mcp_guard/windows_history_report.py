@@ -34,6 +34,15 @@ def _text(value: Any) -> str:
     return escape(str(value), quote=True)
 
 
+def _summary_label(value: Any) -> str:
+    if not isinstance(value, dict):
+        return "present=unknown"
+    facts = value.get("facts", {})
+    if isinstance(facts, dict) and facts:
+        return ", ".join(f"{name}={fact}" for name, fact in sorted(facts.items()))
+    return f"present={value.get('present')}"
+
+
 def _validate_history_document(data: dict[str, Any]) -> list[dict[str, Any]]:
     if data.get("schema_version") != 1 or data.get("kind") != "windows_audit_history":
         raise ValueError("Expected a version 1 windows_audit_history document.")
@@ -76,9 +85,7 @@ def history_html_report(data: dict[str, Any]) -> str:
     for record in records:
         before = record.get("before", {})
         after = record.get("after", {})
-        before_present = before.get("present") if isinstance(before, dict) else None
-        after_present = after.get("present") if isinstance(after, dict) else None
-        presence = f"{before_present} → {after_present}"
+        summary_change = f"{_summary_label(before)} → {_summary_label(after)}"
         identity = (
             " / ".join(
                 _text(value)
@@ -94,7 +101,7 @@ def history_html_report(data: dict[str, Any]) -> str:
               <td>{_text(record.get("category", ""))}</td>
               <th scope="row">{_text(record.get("target", ""))}</th>
               <td>{_text(record.get("operation", ""))}</td>
-              <td>{_text(record.get("change", ""))}<small>{_text(presence)}</small></td>
+              <td>{_text(record.get("change", ""))}<small>{_text(summary_change)}</small></td>
               <td>{identity}<small>{_text(record.get("source", ""))}</small></td>
             </tr>"""
         )

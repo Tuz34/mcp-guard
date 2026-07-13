@@ -1,0 +1,14 @@
+{
+  "action_type": "windows_setting",
+  "timestamp": "2026-01-15T10:03:00Z",
+  "verification_state": "verified",
+  "source": "snapshot_comparison:synthetic_firewall_provider->synthetic_firewall_provider",
+  "category": "firewall",
+  "target": "public",
+  "operation": "compare_profile_state",
+  "change": "updated",
+  "before": {"present": true, "facts": {"policy_state": "disabled"}},
+  "after": {"present": true, "facts": {"policy_state": "enabled"}},
+  "actor": "demo-agent",
+  "tool": "synthetic-firewall-adapter"
+}

@@ -46,6 +46,37 @@ def test_unknown_presence_remains_observed():
     assert record.change == "unknown"
 
 
+def test_verifies_change_between_matching_normalized_fact_sets():
+    before = _snapshot("2026-01-15T10:00:00Z", True)
+    after = _snapshot("2026-01-15T10:01:00Z", True)
+    before = ObservedWindowsSnapshot(
+        **{**before.__dict__, "state": StateSummary(True, (("policy_state", "disabled"),))}
+    )
+    after = ObservedWindowsSnapshot(
+        **{**after.__dict__, "state": StateSummary(True, (("policy_state", "enabled"),))}
+    )
+
+    record = compare_windows_snapshots(before, after)
+
+    assert record.verification_state == "verified"
+    assert record.change == "updated"
+
+
+def test_different_fact_shapes_do_not_claim_verification():
+    before = _snapshot("2026-01-15T10:00:00Z", True)
+    after = ObservedWindowsSnapshot(
+        **{
+            **_snapshot("2026-01-15T10:01:00Z", True).__dict__,
+            "state": StateSummary(True, (("runtime_state", "running"),)),
+        }
+    )
+
+    record = compare_windows_snapshots(before, after)
+
+    assert record.verification_state == "observed"
+    assert record.change == "unknown"
+
+
 def test_carries_matching_proposed_intent_metadata():
     proposed = parse_windows_setting_action(
         {

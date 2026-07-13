@@ -1,4 +1,4 @@
-from mcp_guard.windows_audit import parse_windows_setting_action
+from mcp_guard.windows_audit import parse_windows_audit_record, parse_windows_setting_action
 from mcp_guard.windows_history_report import history_document, history_html_report
 
 
@@ -23,7 +23,7 @@ def _record(target="HKCU\\SyntheticDemo"):
 def test_history_html_is_compact_static_and_script_free():
     report = history_html_report(history_document([_record()], source="synthetic-history.jsonl"))
     assert "Windows audit history" in report
-    assert "False → True" in report
+    assert "present=False → present=True" in report
     assert "No scripts, telemetry, or external assets." in report
     assert "<script" not in report
     assert "https://" not in report
@@ -48,3 +48,24 @@ def test_history_html_renders_empty_filtered_view():
         history_document([], source="synthetic-history.jsonl", filters={"category": "service"})
     )
     assert "No records match the selected filters." in report
+
+
+def test_history_html_shows_normalized_fact_changes():
+    record = _record()
+    payload = record.to_dict()
+    payload["change"] = "updated"
+    payload["before"] = {
+        "present": True,
+        "redacted": True,
+        "facts": {"policy_state": "disabled"},
+    }
+    payload["after"] = {
+        "present": True,
+        "redacted": True,
+        "facts": {"policy_state": "enabled"},
+    }
+    report = history_html_report(
+        history_document([parse_windows_audit_record(payload)], source="synthetic.jsonl")
+    )
+
+    assert "policy_state=disabled → policy_state=enabled" in report

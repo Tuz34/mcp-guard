@@ -126,11 +126,12 @@ All files under [`examples`](examples) are deliberately synthetic. They contain 
 The first opt-in Windows audit contract is documented in
 [`docs/windows-audit.md`](docs/windows-audit.md). It keeps `proposed`, `observed`,
 and `verified` states separate and rejects raw setting values and value hashes.
-Windows reads are off by default and there is no background agent. The first
-built-in provider can report only whether an explicitly named HKCU Registry key
-exists, and only through the `enabled=True` provider gate; it never queries a
-Registry value. Service, firewall, policy, and broader Registry adapters remain
-roadmap work.
+Windows reads are off by default and there is no background agent. Built-in
+providers cover HKCU key presence, service runtime/startup state, firewall profile
+enablement, and the selected long-path policy. Every read requires the
+`enabled=True` provider gate. Outputs contain only presence and allowlisted
+normalized facts; raw Registry values, service paths, and arbitrary text are never
+serialized.
 
 The audit library can also compare before/after presence snapshots and append
 strictly validated, summary-only records to opt-in local JSONL history. Category,
@@ -145,6 +146,19 @@ mcp-guard audit-report --input audit.jsonl --format html --state verified --outp
 
 History HTML is compact and self-contained. Filters are applied explicitly during
 generation, so the report keeps the project's no-JavaScript and no-network model.
+
+The complete opt-in Windows flow is also available from the CLI:
+
+```bash
+mcp-guard windows-snapshot --provider service --target SyntheticDemoService \
+  --enable-windows-audit --output before.json
+mcp-guard windows-compare --before before.json --after after.json \
+  --output comparison.json
+mcp-guard audit-append --input comparison.json --history audit.jsonl --enable-history
+```
+
+Snapshot files are always `observed`. Only a consistent before/after comparison
+can create a `verified` record.
 
 ## What it checks
 
@@ -257,8 +271,8 @@ types, fixtures, and false-positive tests are welcome.
 
 - **v0.1:** More built-in rule packs, SARIF and HTML reports, reusable GitHub Action.
 - **v0.2:** Tool registry scanning, workspace baselines, MCP proxy dry-run mode.
-- **Windows audit:** More read-only snapshot providers and Windows CI, built on
-  the existing summary-only history and report flow without hidden monitoring.
+- **Windows audit:** Additional explicitly allowlisted read-only providers, built
+  on the summary-only history and report flow without hidden monitoring.
 - **v1:** Optional runtime proxy, approval workflows, and a policy adapter such as OPA/Rego.
 
 ## License

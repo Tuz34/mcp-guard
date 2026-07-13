@@ -1,7 +1,11 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from mcp_guard.cli import main
+from mcp_guard.windows_audit import StateSummary
+from mcp_guard.windows_providers import ObservedWindowsSnapshot
 
 ROOT = Path(__file__).parents[1]
 
@@ -212,3 +216,114 @@ def test_audit_history_cli_append_filter_and_html_report(tmp_path):
     assert "Windows audit history" in report
     assert "verified" in report
     assert "<script" not in report
+
+
+def test_windows_snapshot_requires_explicit_enable_flag(tmp_path, capsys):
+    output = tmp_path / "snapshot.json"
+
+    code = main(
+        [
+            "windows-snapshot",
+            "--provider",
+            "service",
+            "--target",
+            "SyntheticDemoService",
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert code == 3
+    assert not output.exists()
+    assert "enabled=True" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "provider,target",
+    [
+        ("registry-key", "HKCU\\Software\\SyntheticDemo"),
+        ("service", "SyntheticDemoService"),
+        ("firewall", "public"),
+        ("long-paths", "long_paths_enabled"),
+    ],
+)
+def test_windows_snapshot_cli_writes_observed_summary(tmp_path, monkeypatch, provider, target):
+    output = tmp_path / "snapshot.json"
+
+    def synthetic_collect(selected_provider, selected_target, *, enabled):
+        assert enabled is True
+        assert selected_target == target
+        return ObservedWindowsSnapshot(
+            collected_at="2026-01-15T10:00:00Z",
+            source=selected_provider.name,
+            category=selected_provider.category,
+            target=selected_target,
+            state=StateSummary(present=True),
+        )
+
+    monkeypatch.setattr("mcp_guard.cli.collect_windows_snapshot", synthetic_collect)
+
+    code = main(
+        [
+            "windows-snapshot",
+            "--provider",
+            provider,
+            "--target",
+            target,
+            "--enable-windows-audit",
+            "--output",
+            str(output),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert code == 0
+    assert payload["verification_state"] == "observed"
+    assert payload["state"]["redacted"] is True
+
+
+def test_windows_compare_cli_produces_appendable_verified_record(tmp_path):
+    before = tmp_path / "before.json"
+    after = tmp_path / "after.json"
+    output = tmp_path / "comparison.json"
+
+    def snapshot(timestamp, state):
+        return ObservedWindowsSnapshot(
+            collected_at=timestamp,
+            source="synthetic_provider",
+            category="firewall",
+            target="public",
+            state=StateSummary(
+                present=True,
+                facts=(("policy_state", state),),
+            ),
+        ).to_dict()
+
+    before.write_text(
+        json.dumps(snapshot("2026-01-15T10:00:00Z", "disabled")),
+        encoding="utf-8",
+    )
+    after.write_text(
+        json.dumps(snapshot("2026-01-15T10:01:00Z", "enabled")),
+        encoding="utf-8",
+    )
+
+    assert (
+        main(
+            [
+                "windows-compare",
+                "--before",
+                str(before),
+                "--after",
+                str(after),
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["verification_state"] == "verified"
+    assert payload["change"] == "updated"
+    assert payload["before"]["facts"] == {"policy_state": "disabled"}

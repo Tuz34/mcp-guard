@@ -15,12 +15,21 @@ from .reports import json_report, markdown_report, validate_report
 from .scanners import scan_manifest
 from .validation import InputError
 from .windows_audit import parse_windows_audit_record, parse_windows_setting_action
+from .windows_compare import compare_windows_snapshots
 from .windows_history import append_audit_record, filter_audit_history, load_audit_history
 from .windows_history_report import (
     history_document,
     history_html_report,
     history_json_report,
 )
+from .windows_providers import (
+    WindowsProviderError,
+    collect_windows_snapshot,
+    parse_observed_windows_snapshot,
+)
+from .windows_registry import RegistryKeyPresenceProvider
+from .windows_service import ServiceSummaryProvider
+from .windows_settings import FirewallProfileProvider, LongPathsPolicyProvider
 
 EXIT_CODES = {"allow": 0, "warn": 1, "deny": 2}
 
@@ -86,6 +95,26 @@ def build_parser() -> argparse.ArgumentParser:
     audit_report.add_argument("--state", dest="verification_state")
     audit_report.add_argument("--from", dest="from_timestamp")
     audit_report.add_argument("--to", dest="to_timestamp")
+    snapshot = sub.add_parser(
+        "windows-snapshot",
+        help="Explicitly collect one read-only, summary-only Windows snapshot.",
+    )
+    snapshot.add_argument(
+        "--provider",
+        required=True,
+        choices=["registry-key", "service", "firewall", "long-paths"],
+    )
+    snapshot.add_argument("--target", required=True)
+    snapshot.add_argument("--output")
+    snapshot.add_argument("--enable-windows-audit", action="store_true")
+    compare = sub.add_parser(
+        "windows-compare",
+        help="Compare two saved summary-only Windows snapshots.",
+    )
+    compare.add_argument("--before", required=True)
+    compare.add_argument("--after", required=True)
+    compare.add_argument("--proposed")
+    compare.add_argument("--output")
     return parser
 
 
@@ -119,6 +148,34 @@ def _scan_document(source: str, policy_path: str, data: dict[str, Any]) -> dict[
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "windows-compare":
+        before = parse_observed_windows_snapshot(_read_json(args.before))
+        after = parse_observed_windows_snapshot(_read_json(args.after))
+        proposed = None
+        if args.proposed:
+            data = _read_json(args.proposed)
+            proposed = (
+                parse_windows_setting_action(data)
+                if "action_type" in data
+                else parse_windows_audit_record(data)
+            )
+        record = compare_windows_snapshots(before, after, proposed=proposed)
+        _write(json_report(record.to_dict()), args.output)
+        return 0
+    if args.command == "windows-snapshot":
+        providers = {
+            "registry-key": RegistryKeyPresenceProvider,
+            "service": ServiceSummaryProvider,
+            "firewall": FirewallProfileProvider,
+            "long-paths": LongPathsPolicyProvider,
+        }
+        snapshot = collect_windows_snapshot(
+            providers[args.provider](),
+            args.target,
+            enabled=args.enable_windows_audit,
+        )
+        _write(json_report(snapshot.to_dict()), args.output)
+        return 0
     if args.command == "audit-append":
         data = _read_json(args.input)
         record = (
@@ -167,7 +224,7 @@ def run(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     try:
         return run(build_parser().parse_args(argv))
-    except (InputError, PolicyError, OSError, ValueError) as exc:
+    except (InputError, PolicyError, WindowsProviderError, OSError, ValueError) as exc:
         print(f"mcp-guard: error: {exc}", file=sys.stderr)
         return 3
 

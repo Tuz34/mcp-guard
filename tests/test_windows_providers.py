@@ -2,12 +2,14 @@ from dataclasses import dataclass
 
 import pytest
 
+from mcp_guard.validation import InputError
 from mcp_guard.windows_audit import StateSummary
 from mcp_guard.windows_providers import (
     ProviderContractError,
     ProviderNotEnabledError,
     UnsupportedPlatformError,
     collect_windows_snapshot,
+    parse_observed_windows_snapshot,
 )
 
 
@@ -98,3 +100,28 @@ def test_rejects_empty_target_before_provider_call(monkeypatch):
         collect_windows_snapshot(provider, "  ", enabled=True)
 
     assert provider.calls == 0
+
+
+def test_observed_snapshot_round_trips_through_strict_parser(monkeypatch):
+    provider = SyntheticProvider(
+        summary=StateSummary(
+            present=True,
+            facts=(("runtime_state", "running"),),
+        )
+    )
+    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    snapshot = collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True)
+
+    loaded = parse_observed_windows_snapshot(snapshot.to_dict())
+
+    assert loaded == snapshot
+
+
+def test_saved_snapshot_cannot_claim_verified_state(monkeypatch):
+    provider = SyntheticProvider()
+    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    payload = collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True).to_dict()
+    payload["verification_state"] = "verified"
+
+    with pytest.raises(InputError, match="must have observed"):
+        parse_observed_windows_snapshot(payload)

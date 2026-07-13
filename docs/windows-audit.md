@@ -8,8 +8,7 @@ explicit, opt-in capability under development.
 > Windows reads are **off by default**. There is no background process, command
 > execution, elevation, remediation, telemetry, or network access. The contract
 > parser only validates an in-memory JSON-compatible object. The optional
-> Registry provider described below performs one narrow read only after explicit
-> opt-in.
+> providers described below perform narrow reads only after explicit opt-in.
 
 ## Trust states
 
@@ -46,11 +45,13 @@ Supported categories are `registry`, `service`, `firewall`, `policy`, and
 `setting`. Change kinds are `created`, `updated`, `deleted`, `unchanged`, and
 `unknown`. Timestamps must include a UTC offset or `Z` suffix.
 
-`before` and `after` deliberately contain presence only. The normalized record
-adds `redacted: true` to both summaries. Raw values and value hashes are rejected,
-because hashes can still disclose low-entropy settings through guessing. Unknown
-fields are also rejected so an adapter cannot silently leak data through an
-undocumented property.
+`before` and `after` always contain presence and may contain only allowlisted,
+normalized facts: `runtime_state`, `startup_type`, and `policy_state`. Their values
+are closed enums such as `running`, `automatic`, or `enabled`; arbitrary text is
+rejected. The normalized record adds `redacted: true` to both summaries. Raw values
+and value hashes are rejected because hashes can still disclose low-entropy
+settings through guessing. Unknown fields are also rejected so an adapter cannot
+silently leak data through an undocumented property.
 
 The pure parser is available to integrations:
 
@@ -74,8 +75,8 @@ enabled outside Windows, it returns a clear `UnsupportedPlatformError` without
 calling the provider.
 
 Providers implement the small `WindowsSnapshotProvider` protocol and may return
-only a redacted `StateSummary`. Their result is always labeled `observed`; a
-provider cannot claim independent verification.
+only a redacted `StateSummary` with the allowlisted facts above. Their result is
+always labeled `observed`; a provider cannot claim independent verification.
 
 ### Registry key-presence provider
 
@@ -97,8 +98,29 @@ snapshot = collect_windows_snapshot(
 ```
 
 There is no automatic discovery path. Importing the module does not read the
-Registry. Service, firewall, policy, and Registry-value adapters remain
-unimplemented.
+Registry or Service Control Manager.
+
+### Service providers
+
+`ServiceRuntimeProvider` uses the Windows Service Control Manager query API through
+`ctypes`. It requests `SERVICE_QUERY_STATUS` only and normalizes documented runtime
+states; it never starts, stops, pauses, or reconfigures a service.
+
+`ServiceStartupProvider` reads only the selected service's allowlisted `Start`
+DWORD and maps values `0..4` to `boot`, `system`, `automatic`, `manual`, or
+`disabled`. Service names are validated before any Windows access.
+
+### Firewall and selected policy providers
+
+`FirewallProfileProvider` accepts only `domain`, `private`, or `public` and reads
+the corresponding allowlisted `EnableFirewall` DWORD. `LongPathsPolicyProvider`
+accepts only `long_paths_enabled` and reads the allowlisted `LongPathsEnabled`
+DWORD. Both normalize `0/1` to `disabled/enabled`; other values fail closed.
+
+These providers query only fixed key/value names owned by their implementation.
+There is no arbitrary Registry-value reader. Missing, not-configured,
+access-denied, invalid-type, and unexpected-value outcomes remain distinct.
+HKLM state providers request the 64-bit Registry view when Windows exposes it.
 
 ## Presence comparison
 
@@ -107,10 +129,42 @@ category and target. When both presence states are known, the resulting record i
 `verified`; an unknown state remains `observed`. A matching `proposed` record can
 be supplied to carry the declared operation, actor, and tool into the comparison.
 
-The comparison is intentionally narrow. It can verify that a target appeared,
-disappeared, or kept the same **presence**. Two `present: true` snapshots do not
-prove that a hidden Registry value or service configuration stayed unchanged.
-The engine therefore never infers an `updated` change from presence-only data.
+The comparison is intentionally conservative. It can verify that a target
+appeared, disappeared, or kept the same presence. When both snapshots have the
+same normalized fact keys, it can verify whether those safe facts changed. A
+different fact shape remains `observed/unknown`; the engine never guesses about
+hidden Registry values or uncollected service configuration.
+
+## Explicit snapshot and comparison CLI
+
+Collecting a Windows snapshot requires the opt-in flag. Without it, platform and
+provider code are not called:
+
+```bash
+mcp-guard windows-snapshot \
+  --provider service \
+  --target SyntheticDemoService \
+  --enable-windows-audit \
+  --output before.json
+```
+
+Provider choices are `registry-key`, `service`, `firewall`, and `long-paths`.
+The service provider returns runtime and startup facts together. Firewall targets
+are `domain`, `private`, or `public`; the long-path provider accepts only
+`long_paths_enabled`.
+
+Two saved observations can be compared without another Windows read:
+
+```bash
+mcp-guard windows-compare \
+  --before before.json \
+  --after after.json \
+  --output comparison.json
+```
+
+An optional `--proposed` action carries the declared operation, actor, and tool
+into the comparison. Saved snapshots are strictly revalidated and cannot claim
+`verified`; only the comparison step can produce a verified record.
 
 ## Local JSONL history
 
@@ -164,8 +218,8 @@ HTML contains no JavaScript, external assets, telemetry, or network requests. An
 empty filter result produces an explicit empty table instead of failing or showing
 unfiltered data.
 
-Service, firewall, and selected policy providers plus Windows CI remain the next
-adapter work. They will use the same validated history and report boundary.
+All providers use the same validated history and report boundary. Additional
+Windows surfaces, if any, must be separately allowlisted in later versions.
 
 All examples in [`examples/windows-audit`](../examples/windows-audit) are
 synthetic and contain no user or machine data.

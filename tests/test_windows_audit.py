@@ -16,6 +16,8 @@ FIXTURES = ROOT / "examples/windows-audit"
         ("proposed-service-change.json", "proposed"),
         ("observed-firewall-change.json", "observed"),
         ("verified-registry-change.json", "verified"),
+        ("verified-firewall-profile-change.json", "verified"),
+        ("observed-service-runtime.json", "observed"),
     ],
 )
 def test_parses_synthetic_windows_audit_fixtures(filename, state):
@@ -106,3 +108,36 @@ def test_serialized_record_has_no_raw_value_fields():
 
     for forbidden in ("raw_value", "before_value", "after_value", "value_hash"):
         assert forbidden not in serialized
+
+
+def test_accepts_only_allowlisted_normalized_facts():
+    action = json.loads((FIXTURES / "verified-registry-change.json").read_text(encoding="utf-8"))
+    action["change"] = "updated"
+    action["before"] = {
+        "present": True,
+        "facts": {"policy_state": "disabled"},
+    }
+    action["after"] = {
+        "present": True,
+        "facts": {"policy_state": "enabled"},
+    }
+
+    record = parse_windows_setting_action(action)
+
+    assert record.before.to_dict()["facts"] == {"policy_state": "disabled"}
+    assert record.after.to_dict()["facts"] == {"policy_state": "enabled"}
+
+
+@pytest.mark.parametrize(
+    "facts,message",
+    [
+        ({"raw_state": "anything"}, "Unsupported"),
+        ({"policy_state": "custom text"}, "must be one of"),
+    ],
+)
+def test_rejects_unallowlisted_fact_keys_and_values(facts, message):
+    action = json.loads((FIXTURES / "proposed-service-change.json").read_text(encoding="utf-8"))
+    action["after"] = {"present": True, "facts": facts}
+
+    with pytest.raises(InputError, match=message):
+        parse_windows_setting_action(action)

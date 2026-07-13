@@ -17,13 +17,19 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   access and cannot label a provider observation as verified.
 - Narrow HKCU Registry key-presence provider that uses read-only key access and
   never queries or writes Registry values.
-- Presence-only snapshot comparison with conservative verification semantics.
+- Summary-only snapshot comparison with conservative verification semantics.
 - Strict, opt-in local JSONL audit history with category, trust-state, and time
   filtering.
 - `audit-append` and `audit-report` CLI commands with compact, script-free HTML
   history output and explicit static filters.
 - GitHub Actions coverage for Python 3.10 and 3.12 on both Ubuntu and Windows,
   with read-only repository permissions and fail-fast disabled.
+- Allowlisted normalized audit facts for service runtime, service startup,
+  firewall profile, and selected policy state without raw values.
+- Read-only service runtime/startup, firewall profile, and long-path policy
+  providers with explicit target allowlists and fail-closed error handling.
+- `windows-snapshot` and `windows-compare` CLI commands for an explicit,
+  summary-only collection and verification workflow.
 
 ### Fixed
 

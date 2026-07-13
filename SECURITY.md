@@ -7,9 +7,11 @@ writes reports. It does not execute proposed actions, invoke MCP tools, connect 
 servers, or provide a sandbox.
 
 The experimental Windows audit library API does not change the default CLI behavior.
-Windows reads are off by default. Its first provider can check only whether an
-explicitly named HKCU Registry key exists after `enabled=True`; it does not query
-Registry values, write settings, request elevation, or run in the background.
+Windows reads are off by default. Providers can check only explicitly selected
+targets after `enabled=True`. State providers may read fixed Registry DWORDs or
+query service status, but they never serialize raw Registry values, service paths,
+or arbitrary text. They do not write settings, request elevation, execute commands,
+or run in the background.
 Optional JSONL history writes only validated summary records after a separate
 explicit opt-in; it rejects raw values and value hashes.
 
@@ -22,6 +24,7 @@ The following are security-relevant:
 - A Windows provider reading before explicit opt-in, querying raw values, changing a
   setting, or reporting an observation as independently verified.
 - Audit history accepting undocumented fields or sensitive before/after values.
+- A provider accepting an unallowlisted target or emitting a free-form fact value.
 
 Rule coverage gaps and false negatives are important, but they are not proof of a
 sandbox escape because v0 is not a sandbox.

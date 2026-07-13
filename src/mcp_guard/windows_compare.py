@@ -21,13 +21,22 @@ def _instant(value: str, field: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def _presence_change(before: bool | None, after: bool | None) -> ChangeKind:
-    if before is None or after is None:
+def _summary_change(before: StateSummary, after: StateSummary) -> ChangeKind:
+    if before.present is None or after.present is None:
         return "unknown"
-    if before is False and after is True:
+    if before.present is False and after.present is True:
         return "created"
-    if before is True and after is False:
+    if before.present is True and after.present is False:
         return "deleted"
+    if before.present is False and after.present is False:
+        return "unchanged"
+
+    before_facts = dict(before.facts)
+    after_facts = dict(after.facts)
+    if before_facts.keys() != after_facts.keys():
+        return "unknown"
+    if before_facts != after_facts:
+        return "updated"
     return "unchanged"
 
 
@@ -57,7 +66,7 @@ def compare_windows_snapshots(
         if proposed.category != after.category or proposed.target != after.target:
             raise ComparisonError("The proposed intent must match snapshot category and target.")
 
-    change = _presence_change(before.state.present, after.state.present)
+    change = _summary_change(before.state, after.state)
     verification_state = "verified" if change != "unknown" else "observed"
     timestamp = after_time.isoformat().replace("+00:00", "Z")
 
@@ -69,8 +78,8 @@ def compare_windows_snapshots(
         target=after.target,
         operation=proposed.operation if proposed else "compare_presence",
         change=change,
-        before=StateSummary(present=before.state.present),
-        after=StateSummary(present=after.state.present),
+        before=StateSummary(present=before.state.present, facts=before.state.facts),
+        after=StateSummary(present=after.state.present, facts=after.state.facts),
         actor=proposed.actor if proposed else None,
         tool=proposed.tool if proposed else None,
     )

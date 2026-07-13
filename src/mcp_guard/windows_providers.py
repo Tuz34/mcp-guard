@@ -5,7 +5,26 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Literal, Protocol, cast
 
-from .windows_audit import WINDOWS_CATEGORIES, StateSummary, WindowsCategory
+from .validation import InputError
+from .windows_audit import (
+    WINDOWS_CATEGORIES,
+    StateSummary,
+    WindowsCategory,
+    parse_windows_setting_action,
+)
+
+_ALLOWED_SNAPSHOT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "kind",
+        "collected_at",
+        "verification_state",
+        "source",
+        "category",
+        "target",
+        "state",
+    }
+)
 
 
 class WindowsProviderError(RuntimeError):
@@ -35,7 +54,7 @@ class WindowsSnapshotProvider(Protocol):
     category: WindowsCategory
 
     def read_summary(self, target: str) -> StateSummary:
-        """Return presence-only state for target without changing the system."""
+        """Return a redacted summary for target without changing the system."""
         ...
 
 
@@ -61,11 +80,47 @@ class ObservedWindowsSnapshot:
             "source": self.source,
             "category": self.category,
             "target": self.target,
-            "state": {
-                "present": self.state.present,
-                "redacted": self.state.redacted,
-            },
+            "state": self.state.to_dict(),
         }
+
+
+def parse_observed_windows_snapshot(data: dict[str, Any]) -> ObservedWindowsSnapshot:
+    """Strictly validate a saved summary-only provider snapshot."""
+
+    if not isinstance(data, dict):
+        raise InputError("Windows snapshot must be an object.")
+    unknown = set(data) - _ALLOWED_SNAPSHOT_FIELDS
+    if unknown:
+        names = ", ".join(sorted(unknown))
+        raise InputError(f"Unknown Windows snapshot fields: {names}.")
+    if type(data.get("schema_version")) is not int or data["schema_version"] != 1:
+        raise InputError("Windows snapshot schema_version must be 1.")
+    if data.get("kind") != "windows_snapshot":
+        raise InputError("Windows snapshot kind must be 'windows_snapshot'.")
+    if data.get("verification_state") != "observed":
+        raise InputError("Provider snapshots must have observed verification state.")
+
+    record = parse_windows_setting_action(
+        {
+            "action_type": "windows_setting",
+            "timestamp": data.get("collected_at"),
+            "verification_state": "observed",
+            "source": data.get("source"),
+            "category": data.get("category"),
+            "target": data.get("target"),
+            "operation": "collect_snapshot",
+            "change": "unknown",
+            "before": {"present": None},
+            "after": data.get("state"),
+        }
+    )
+    return ObservedWindowsSnapshot(
+        collected_at=record.timestamp,
+        source=record.source,
+        category=record.category,
+        target=record.target,
+        state=record.after,
+    )
 
 
 def _provider_text(provider: WindowsSnapshotProvider, field: str) -> str:

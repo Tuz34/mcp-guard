@@ -1,0 +1,13 @@
+{
+  "action_type": "windows_setting",
+  "timestamp": "2026-01-15T10:04:00Z",
+  "verification_state": "observed",
+  "source": "synthetic_service_runtime_provider",
+  "category": "service",
+  "target": "SyntheticDemoService",
+  "operation": "inspect_runtime_state",
+  "change": "unknown",
+  "before": {"present": null},
+  "after": {"present": true, "facts": {"runtime_state": "running"}},
+  "tool": "synthetic-service-adapter"
+}
