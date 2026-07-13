@@ -138,6 +138,14 @@ verification-state, and ISO-8601 time filters produce static views without
 rewriting the stored audit file. See the [Windows audit contract](docs/windows-audit.md)
 for the exact trust and privacy boundaries.
 
+```bash
+mcp-guard audit-append --input record.json --history audit.jsonl --enable-history
+mcp-guard audit-report --input audit.jsonl --format html --state verified --output audit.html
+```
+
+History HTML is compact and self-contained. Filters are applied explicitly during
+generation, so the report keeps the project's no-JavaScript and no-network model.
+
 ## What it checks
 
 - Blocked and review-required shell substrings.
@@ -247,8 +255,8 @@ The GitHub Actions workflow runs the same checks on Python 3.10 and 3.12. Contri
 
 - **v0.1:** More built-in rule packs, SARIF and HTML reports, reusable GitHub Action.
 - **v0.2:** Tool registry scanning, workspace baselines, MCP proxy dry-run mode.
-- **Windows audit:** Explicit read-only snapshot providers and historical views,
-  built on the summary-only contract without hidden monitoring.
+- **Windows audit:** More read-only snapshot providers and Windows CI, built on
+  the existing summary-only history and report flow without hidden monitoring.
 - **v1:** Optional runtime proxy, approval workflows, and a policy adapter such as OPA/Rego.
 
 ## License

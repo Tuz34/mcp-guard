@@ -96,8 +96,8 @@ snapshot = collect_windows_snapshot(
 )
 ```
 
-There is no CLI or automatic discovery path yet. Importing the module does not
-read the Registry. Service, firewall, policy, and Registry-value adapters remain
+There is no automatic discovery path. Importing the module does not read the
+Registry. Service, firewall, policy, and Registry-value adapters remain
 unimplemented.
 
 ## Presence comparison
@@ -134,8 +134,38 @@ inclusive ISO-8601 time range. Filtering does not rewrite the stored history. Se
 [`synthetic-history.jsonl`](../examples/windows-audit/synthetic-history.jsonl) for
 a synthetic two-record example.
 
-HTML rendering and CLI integration will consume the validated, filtered history
-without changing the underlying JSONL file.
+## CLI history workflow
+
+Append a validated action or normalized audit record. The explicit history flag
+is required; without it, no file is created or changed:
+
+```bash
+mcp-guard audit-append \
+  --input examples/windows-audit/verified-registry-change.json \
+  --history output/windows-audit.jsonl \
+  --enable-history
+```
+
+Generate a filtered JSON or compact HTML view:
+
+```bash
+mcp-guard audit-report \
+  --input output/windows-audit.jsonl \
+  --format html \
+  --category registry \
+  --state verified \
+  --from 2026-01-01T00:00:00Z \
+  --to 2026-12-31T23:59:59Z \
+  --output output/windows-audit.html
+```
+
+Filters are applied during generation and listed in the report. The self-contained
+HTML contains no JavaScript, external assets, telemetry, or network requests. An
+empty filter result produces an explicit empty table instead of failing or showing
+unfiltered data.
+
+Service, firewall, and selected policy providers plus Windows CI remain the next
+adapter work. They will use the same validated history and report boundary.
 
 All examples in [`examples/windows-audit`](../examples/windows-audit) are
 synthetic and contain no user or machine data.

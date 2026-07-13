@@ -14,6 +14,13 @@ from .policy import PolicyError, load_policy
 from .reports import json_report, markdown_report, validate_report
 from .scanners import scan_manifest
 from .validation import InputError
+from .windows_audit import parse_windows_audit_record, parse_windows_setting_action
+from .windows_history import append_audit_record, filter_audit_history, load_audit_history
+from .windows_history_report import (
+    history_document,
+    history_html_report,
+    history_json_report,
+)
 
 EXIT_CODES = {"allow": 0, "warn": 1, "deny": 2}
 
@@ -63,6 +70,22 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--input", required=True)
     report.add_argument("--format", choices=["json", "markdown", "html"], default="markdown")
     report.add_argument("--output", help="Write the report to this path instead of stdout.")
+    audit_append = sub.add_parser(
+        "audit-append", help="Append a validated Windows audit record to local JSONL history."
+    )
+    audit_append.add_argument("--input", required=True)
+    audit_append.add_argument("--history", required=True)
+    audit_append.add_argument("--enable-history", action="store_true")
+    audit_report = sub.add_parser(
+        "audit-report", help="Render filtered local Windows audit JSONL history."
+    )
+    audit_report.add_argument("--input", required=True)
+    audit_report.add_argument("--format", choices=["json", "html"], default="html")
+    audit_report.add_argument("--output")
+    audit_report.add_argument("--category")
+    audit_report.add_argument("--state", dest="verification_state")
+    audit_report.add_argument("--from", dest="from_timestamp")
+    audit_report.add_argument("--to", dest="to_timestamp")
     return parser
 
 
@@ -96,6 +119,34 @@ def _scan_document(source: str, policy_path: str, data: dict[str, Any]) -> dict[
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "audit-append":
+        data = _read_json(args.input)
+        record = (
+            parse_windows_setting_action(data)
+            if "action_type" in data
+            else parse_windows_audit_record(data)
+        )
+        append_audit_record(args.history, record, enabled=args.enable_history)
+        print(f"Appended {args.history}", file=sys.stderr)
+        return 0
+    if args.command == "audit-report":
+        records = filter_audit_history(
+            load_audit_history(args.input),
+            category=args.category,
+            verification_state=args.verification_state,
+            from_timestamp=args.from_timestamp,
+            to_timestamp=args.to_timestamp,
+        )
+        filters = {
+            "category": args.category,
+            "verification_state": args.verification_state,
+            "from_timestamp": args.from_timestamp,
+            "to_timestamp": args.to_timestamp,
+        }
+        payload = history_document(records, source=args.input, filters=filters)
+        renderer = history_json_report if args.format == "json" else history_html_report
+        _write(renderer(payload), args.output)
+        return 0
     if args.command == "report":
         payload = _read_json(args.input)
     elif args.command == "check":

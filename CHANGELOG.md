@@ -20,6 +20,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Presence-only snapshot comparison with conservative verification semantics.
 - Strict, opt-in local JSONL audit history with category, trust-state, and time
   filtering.
+- `audit-append` and `audit-report` CLI commands with compact, script-free HTML
+  history output and explicit static filters.
 
 ### Fixed
 

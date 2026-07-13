@@ -154,3 +154,61 @@ def test_non_string_network_url_returns_clean_input_error(tmp_path, capsys):
     assert code == 3
     assert "action.url must be a string" in captured.err
     assert "Traceback" not in captured.err
+
+
+def test_audit_append_requires_explicit_history_flag(tmp_path, capsys):
+    history = tmp_path / "audit.jsonl"
+    code = main(
+        [
+            "audit-append",
+            "--input",
+            str(ROOT / "examples/windows-audit/verified-registry-change.json"),
+            "--history",
+            str(history),
+        ]
+    )
+    assert code == 3
+    assert not history.exists()
+    assert "enabled=True" in capsys.readouterr().err
+
+
+def test_audit_history_cli_append_filter_and_html_report(tmp_path):
+    history = tmp_path / "audit.jsonl"
+    output = tmp_path / "history.html"
+    assert (
+        main(
+            [
+                "audit-append",
+                "--input",
+                str(ROOT / "examples/windows-audit/verified-registry-change.json"),
+                "--history",
+                str(history),
+                "--enable-history",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "audit-report",
+                "--input",
+                str(history),
+                "--format",
+                "html",
+                "--category",
+                "registry",
+                "--state",
+                "verified",
+                "--from",
+                "2026-01-15T09:00:00Z",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    report = output.read_text(encoding="utf-8")
+    assert "Windows audit history" in report
+    assert "verified" in report
+    assert "<script" not in report
