@@ -164,11 +164,29 @@ def collect_windows_snapshot(
             "Provider must return a redacted StateSummary without raw values."
         )
 
+    try:
+        validated = parse_windows_setting_action(
+            {
+                "action_type": "windows_setting",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "verification_state": "observed",
+                "source": source,
+                "category": category,
+                "target": target.strip(),
+                "operation": "collect_snapshot",
+                "change": "unknown",
+                "before": {"present": None},
+                "after": summary.to_dict(),
+            }
+        )
+    except InputError as exc:
+        raise ProviderContractError(f"Provider returned an invalid summary: {exc}") from exc
+
     collected_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     return ObservedWindowsSnapshot(
         collected_at=collected_at,
         source=source,
         category=cast(WindowsCategory, category),
         target=target.strip(),
-        state=summary,
+        state=validated.after,
     )

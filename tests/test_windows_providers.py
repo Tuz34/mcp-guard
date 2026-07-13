@@ -82,6 +82,21 @@ def test_rejects_non_redacted_provider_result(monkeypatch):
         collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True)
 
 
+@pytest.mark.parametrize(
+    "facts",
+    [
+        (("raw_state", "must-not-escape"),),
+        (("policy_state", "free-form-secret"),),
+    ],
+)
+def test_collector_revalidates_third_party_provider_facts(monkeypatch, facts):
+    provider = SyntheticProvider(summary=StateSummary(present=True, facts=facts))
+    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+
+    with pytest.raises(ProviderContractError, match="invalid summary"):
+        collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True)
+
+
 def test_rejects_unknown_provider_category_before_provider_call(monkeypatch):
     provider = SyntheticProvider(category="everything")
     monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
