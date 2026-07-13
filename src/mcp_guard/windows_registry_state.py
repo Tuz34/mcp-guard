@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from dataclasses import dataclass
 from types import ModuleType
 
@@ -54,10 +55,14 @@ def read_allowlisted_hklm_dword(subkey: str, value_name: str) -> RegistryDwordRe
             raise ProviderReadError("Allowlisted Registry value is not a DWORD.")
         return RegistryDwordRead(key_present=True, value_present=True, value=value)
     finally:
+        read_failed = sys.exc_info()[0] is not None
         try:
             winreg.CloseKey(handle)
         except OSError as exc:
-            raise ProviderReadError("Registry state handle could not be closed cleanly.") from exc
+            if not read_failed:
+                raise ProviderReadError(
+                    "Registry state handle could not be closed cleanly."
+                ) from exc
 
 
 def hklm_value_exists(subkey: str, value_name: str) -> bool:
@@ -87,9 +92,11 @@ def hklm_value_exists(subkey: str, value_name: str) -> bool:
                 "Allowlisted Registry value presence could not be read."
             ) from exc
     finally:
+        read_failed = sys.exc_info()[0] is not None
         try:
             winreg.CloseKey(handle)
         except OSError as exc:
-            raise ProviderReadError(
-                "Registry presence handle could not be closed cleanly."
-            ) from exc
+            if not read_failed:
+                raise ProviderReadError(
+                    "Registry presence handle could not be closed cleanly."
+                ) from exc

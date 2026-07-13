@@ -59,7 +59,12 @@ def load_audit_history(
     records: list[WindowsAuditRecord] = []
     try:
         with source.open("r", encoding="utf-8") as handle:
-            for line_number, line in enumerate(handle, start=1):
+            line_number = 0
+            while True:
+                line = handle.readline(MAX_HISTORY_LINE_BYTES + 1)
+                if not line:
+                    break
+                line_number += 1
                 if not line.strip():
                     continue
                 if len(line.encode("utf-8")) > MAX_HISTORY_LINE_BYTES:

@@ -102,6 +102,28 @@ def test_windows_service_api_bindings_load_without_querying_a_service():
     assert backend is not None
 
 
+def test_service_close_failure_does_not_mask_query_failure(monkeypatch):
+    class FailingApi:
+        def OpenSCManagerW(self, *args):
+            return 1
+
+        def OpenServiceW(self, *args):
+            return 2
+
+        def QueryServiceStatusEx(self, *args):
+            return False
+
+        def CloseServiceHandle(self, *args):
+            return False
+
+    backend = object.__new__(_CtypesServiceStatusBackend)
+    backend._api = FailingApi()
+    monkeypatch.setattr("mcp_guard.windows_service.ctypes.get_last_error", lambda: 123)
+
+    with pytest.raises(ProviderReadError, match="runtime state could not be queried"):
+        backend.read_runtime_state("SyntheticDemoService")
+
+
 def test_service_summary_combines_runtime_and_startup_facts(monkeypatch):
     monkeypatch.setattr(
         "mcp_guard.windows_service.ServiceRuntimeProvider.read_summary",

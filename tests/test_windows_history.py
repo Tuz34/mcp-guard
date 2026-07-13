@@ -122,6 +122,15 @@ def test_invalid_history_reports_line_number(tmp_path):
         load_audit_history(path)
 
 
+def test_oversized_single_line_is_rejected_by_bounded_reader(tmp_path, monkeypatch):
+    path = tmp_path / "oversized.jsonl"
+    path.write_text("x" * 33, encoding="utf-8")
+    monkeypatch.setattr("mcp_guard.windows_history.MAX_HISTORY_LINE_BYTES", 32)
+
+    with pytest.raises(HistoryError, match="line 1 is too large"):
+        load_audit_history(path)
+
+
 def test_filters_history_by_category_state_and_time():
     records = [
         _record("2026-01-15T10:00:00Z", category="registry", state="verified"),

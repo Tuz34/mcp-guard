@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import re
+import sys
 from ctypes import wintypes
 from typing import Protocol
 
@@ -117,10 +118,14 @@ class _CtypesServiceStatusBackend:
                     raise ProviderReadError("Service returned an undocumented runtime state.")
                 return state
             finally:
-                if not self._api.CloseServiceHandle(service):
+                query_failed = sys.exc_info()[0] is not None
+                service_closed = self._api.CloseServiceHandle(service)
+                if not service_closed and not query_failed:
                     self._last_error("Service handle could not be closed")
         finally:
-            if not self._api.CloseServiceHandle(manager):
+            service_failed = sys.exc_info()[0] is not None
+            manager_closed = self._api.CloseServiceHandle(manager)
+            if not manager_closed and not service_failed:
                 self._last_error("Service Control Manager handle could not be closed")
 
 

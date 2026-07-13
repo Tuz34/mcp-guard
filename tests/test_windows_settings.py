@@ -21,6 +21,7 @@ class SyntheticWinreg:
     value_type: int = 4
     open_error: Exception | None = None
     query_error: Exception | None = None
+    close_error: Exception | None = None
 
     HKEY_LOCAL_MACHINE = object()
     KEY_READ = 0x20019
@@ -44,6 +45,8 @@ class SyntheticWinreg:
 
     def CloseKey(self, handle):
         self.calls.append(("CloseKey", handle))
+        if self.close_error:
+            raise self.close_error
 
     def SetValueEx(self, *args):
         raise AssertionError("Settings providers must never write Registry values")
@@ -107,6 +110,17 @@ def test_access_denied_is_not_reported_as_disabled(monkeypatch):
     _enable(monkeypatch, backend)
 
     with pytest.raises(ProviderReadError, match="denied"):
+        collect_windows_snapshot(FirewallProfileProvider(), "public", enabled=True)
+
+
+def test_registry_close_failure_does_not_mask_read_failure(monkeypatch):
+    backend = SyntheticWinreg(
+        query_error=OSError("primary read failure"),
+        close_error=OSError("secondary close failure"),
+    )
+    _enable(monkeypatch, backend)
+
+    with pytest.raises(ProviderReadError, match="value could not be read"):
         collect_windows_snapshot(FirewallProfileProvider(), "public", enabled=True)
 
 
