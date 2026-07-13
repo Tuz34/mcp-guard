@@ -33,6 +33,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Third-party Windows provider summaries are revalidated before snapshot output,
+  preventing unallowlisted fact keys or free-form values from escaping.
 - Top-level paths now match `**/` policy patterns, preventing sensitive paths such
   as `secrets/...` and `id_rsa` from bypassing deny rules.
 - Sensitive path globs now respect path-segment boundaries, avoiding false denies
