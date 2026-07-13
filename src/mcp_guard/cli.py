@@ -29,7 +29,11 @@ from .windows_providers import (
 )
 from .windows_registry import RegistryKeyPresenceProvider
 from .windows_service import ServiceSummaryProvider
-from .windows_settings import FirewallProfileProvider, LongPathsPolicyProvider
+from .windows_settings import (
+    FirewallProfileProvider,
+    FirewallRulePresenceProvider,
+    LongPathsPolicyProvider,
+)
 
 EXIT_CODES = {"allow": 0, "warn": 1, "deny": 2}
 
@@ -102,7 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     snapshot.add_argument(
         "--provider",
         required=True,
-        choices=["registry-key", "service", "firewall", "long-paths"],
+        choices=["registry-key", "service", "firewall", "firewall-rule", "long-paths"],
     )
     snapshot.add_argument("--target", required=True)
     snapshot.add_argument("--output")
@@ -167,6 +171,7 @@ def run(args: argparse.Namespace) -> int:
             "registry-key": RegistryKeyPresenceProvider,
             "service": ServiceSummaryProvider,
             "firewall": FirewallProfileProvider,
+            "firewall-rule": FirewallRulePresenceProvider,
             "long-paths": LongPathsPolicyProvider,
         }
         snapshot = collect_windows_snapshot(

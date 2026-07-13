@@ -9,6 +9,7 @@ from mcp_guard.windows_providers import (
 )
 from mcp_guard.windows_settings import (
     FirewallProfileProvider,
+    FirewallRulePresenceProvider,
     LongPathsPolicyProvider,
     ServiceStartupProvider,
 )
@@ -133,3 +134,27 @@ def test_unexpected_policy_dword_fails_closed(monkeypatch):
 
     with pytest.raises(ProviderReadError, match="must be 0 or 1"):
         collect_windows_snapshot(FirewallProfileProvider(), "domain", enabled=True)
+
+
+def test_firewall_rule_provider_discards_rule_content(monkeypatch):
+    backend = SyntheticWinreg(value="App=C:\\Synthetic\\Demo.exe|Action=Allow")
+    _enable(monkeypatch, backend)
+
+    snapshot = collect_windows_snapshot(
+        FirewallRulePresenceProvider(), "{SYNTHETIC-RULE-ID}", enabled=True
+    )
+
+    serialized = str(snapshot.to_dict())
+    assert snapshot.state.present is True
+    assert "Synthetic\\Demo.exe" not in serialized
+    assert [call[0] for call in backend.calls] == ["OpenKey", "QueryValueEx", "CloseKey"]
+
+
+def test_invalid_firewall_rule_id_fails_before_registry_access(monkeypatch):
+    backend = SyntheticWinreg()
+    _enable(monkeypatch, backend)
+
+    with pytest.raises(ProviderContractError, match="valid rule ID"):
+        collect_windows_snapshot(FirewallRulePresenceProvider(), "bad\\rule", enabled=True)
+
+    assert backend.calls == []

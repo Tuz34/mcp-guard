@@ -28,6 +28,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   firewall profile, and selected policy state without raw values.
 - Read-only service runtime/startup, firewall profile, and long-path policy
   providers with explicit target allowlists and fail-closed error handling.
+- Firewall rule-presence provider for one explicitly supplied rule ID, with no
+  enumeration and no rule-content output.
 - `windows-snapshot` and `windows-compare` CLI commands for an explicit,
   summary-only collection and verification workflow.
 

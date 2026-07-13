@@ -117,6 +117,11 @@ the corresponding allowlisted `EnableFirewall` DWORD. `LongPathsPolicyProvider`
 accepts only `long_paths_enabled` and reads the allowlisted `LongPathsEnabled`
 DWORD. Both normalize `0/1` to `disabled/enabled`; other values fail closed.
 
+`FirewallRulePresenceProvider` checks only one explicitly supplied rule ID under
+the fixed `FirewallRules` key. It does not enumerate rules and discards the queried
+rule content immediately; output contains presence only. Rule IDs use a narrow
+character allowlist.
+
 These providers query only fixed key/value names owned by their implementation.
 There is no arbitrary Registry-value reader. Missing, not-configured,
 access-denied, invalid-type, and unexpected-value outcomes remain distinct.
@@ -148,10 +153,10 @@ mcp-guard windows-snapshot \
   --output before.json
 ```
 
-Provider choices are `registry-key`, `service`, `firewall`, and `long-paths`.
-The service provider returns runtime and startup facts together. Firewall targets
-are `domain`, `private`, or `public`; the long-path provider accepts only
-`long_paths_enabled`.
+Provider choices are `registry-key`, `service`, `firewall`, `firewall-rule`, and
+`long-paths`. The service provider returns runtime and startup facts together.
+Firewall profile targets are `domain`, `private`, or `public`; `firewall-rule`
+accepts one rule ID; the long-path provider accepts only `long_paths_enabled`.
 
 Two saved observations can be compared without another Windows read:
 

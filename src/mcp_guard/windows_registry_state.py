@@ -58,3 +58,38 @@ def read_allowlisted_hklm_dword(subkey: str, value_name: str) -> RegistryDwordRe
             winreg.CloseKey(handle)
         except OSError as exc:
             raise ProviderReadError("Registry state handle could not be closed cleanly.") from exc
+
+
+def hklm_value_exists(subkey: str, value_name: str) -> bool:
+    """Check one value name under a provider-owned HKLM key without returning content."""
+
+    winreg = _load_winreg()
+    access = winreg.KEY_READ | getattr(winreg, "KEY_WOW64_64KEY", 0)
+    try:
+        handle = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, subkey, 0, access)
+    except FileNotFoundError:
+        return False
+    except PermissionError as exc:
+        raise ProviderReadError("Allowlisted Registry key presence read was denied.") from exc
+    except OSError as exc:
+        raise ProviderReadError("Allowlisted Registry key presence could not be read.") from exc
+
+    try:
+        try:
+            winreg.QueryValueEx(handle, value_name)
+            return True
+        except FileNotFoundError:
+            return False
+        except PermissionError as exc:
+            raise ProviderReadError("Allowlisted Registry value presence read was denied.") from exc
+        except OSError as exc:
+            raise ProviderReadError(
+                "Allowlisted Registry value presence could not be read."
+            ) from exc
+    finally:
+        try:
+            winreg.CloseKey(handle)
+        except OSError as exc:
+            raise ProviderReadError(
+                "Registry presence handle could not be closed cleanly."
+            ) from exc

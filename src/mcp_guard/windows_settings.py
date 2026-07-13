@@ -4,7 +4,11 @@ import re
 
 from .windows_audit import StateSummary
 from .windows_providers import ProviderContractError, ProviderReadError
-from .windows_registry_state import RegistryDwordRead, read_allowlisted_hklm_dword
+from .windows_registry_state import (
+    RegistryDwordRead,
+    hklm_value_exists,
+    read_allowlisted_hklm_dword,
+)
 
 _FIREWALL_KEYS = {
     "domain": (
@@ -21,7 +25,12 @@ _FIREWALL_KEYS = {
     ),
 }
 _LONG_PATHS_KEY = r"SYSTEM\CurrentControlSet\Control\FileSystem"
+_FIREWALL_RULES_KEY = (
+    r"SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters"
+    r"\FirewallPolicy\FirewallRules"
+)
 _SERVICE_NAME = re.compile(r"^[A-Za-z0-9_. -]{1,256}$")
+_FIREWALL_RULE_ID = re.compile(r"^[A-Za-z0-9{}_. -]{1,256}$")
 
 
 def _policy_summary(result: RegistryDwordRead) -> StateSummary:
@@ -49,6 +58,18 @@ class FirewallProfileProvider:
         return _policy_summary(
             read_allowlisted_hklm_dword(_FIREWALL_KEYS[normalized], "EnableFirewall")
         )
+
+
+class FirewallRulePresenceProvider:
+    """Check one explicitly named firewall rule value without returning its content."""
+
+    name = "windows_firewall_rule_presence"
+    category = "firewall"
+
+    def read_summary(self, target: str) -> StateSummary:
+        if not isinstance(target, str) or not _FIREWALL_RULE_ID.fullmatch(target):
+            raise ProviderContractError("Firewall rule target must be a valid rule ID.")
+        return StateSummary(present=hklm_value_exists(_FIREWALL_RULES_KEY, target))
 
 
 class LongPathsPolicyProvider:

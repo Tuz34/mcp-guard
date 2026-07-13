@@ -244,6 +244,7 @@ def test_windows_snapshot_requires_explicit_enable_flag(tmp_path, capsys):
         ("registry-key", "HKCU\\Software\\SyntheticDemo"),
         ("service", "SyntheticDemoService"),
         ("firewall", "public"),
+        ("firewall-rule", "{SYNTHETIC-RULE-ID}"),
         ("long-paths", "long_paths_enabled"),
     ],
 )

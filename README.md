@@ -128,7 +128,7 @@ The first opt-in Windows audit contract is documented in
 and `verified` states separate and rejects raw setting values and value hashes.
 Windows reads are off by default and there is no background agent. Built-in
 providers cover HKCU key presence, service runtime/startup state, firewall profile
-enablement, and the selected long-path policy. Every read requires the
+enablement/rule presence, and the selected long-path policy. Every read requires the
 `enabled=True` provider gate. Outputs contain only presence and allowlisted
 normalized facts; raw Registry values, service paths, and arbitrary text are never
 serialized.
