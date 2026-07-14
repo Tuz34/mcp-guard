@@ -3,13 +3,13 @@ from dataclasses import dataclass
 
 import pytest
 
-from mcp_guard.windows_audit import StateSummary
-from mcp_guard.windows_providers import (
+from policylatch.windows_audit import StateSummary
+from policylatch.windows_providers import (
     ProviderContractError,
     ProviderReadError,
     collect_windows_snapshot,
 )
-from mcp_guard.windows_service import (
+from policylatch.windows_service import (
     ServiceRuntimeProvider,
     ServiceSummaryProvider,
     _CtypesServiceStatusBackend,
@@ -30,8 +30,8 @@ class SyntheticServiceBackend:
 
 
 def _enable(monkeypatch, backend):
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
-    monkeypatch.setattr("mcp_guard.windows_service._load_service_backend", lambda: backend)
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_service._load_service_backend", lambda: backend)
 
 
 @pytest.mark.parametrize(
@@ -119,7 +119,7 @@ def test_service_close_failure_does_not_mask_query_failure(monkeypatch):
     backend = object.__new__(_CtypesServiceStatusBackend)
     backend._api = FailingApi()
     monkeypatch.setattr(
-        "mcp_guard.windows_service.ctypes.get_last_error",
+        "policylatch.windows_service.ctypes.get_last_error",
         lambda: 123,
         raising=False,
     )
@@ -130,11 +130,11 @@ def test_service_close_failure_does_not_mask_query_failure(monkeypatch):
 
 def test_service_summary_combines_runtime_and_startup_facts(monkeypatch):
     monkeypatch.setattr(
-        "mcp_guard.windows_service.ServiceRuntimeProvider.read_summary",
+        "policylatch.windows_service.ServiceRuntimeProvider.read_summary",
         lambda self, target: StateSummary(present=True, facts=(("runtime_state", "running"),)),
     )
     monkeypatch.setattr(
-        "mcp_guard.windows_service.ServiceStartupProvider.read_summary",
+        "policylatch.windows_service.ServiceStartupProvider.read_summary",
         lambda self, target: StateSummary(present=True, facts=(("startup_type", "automatic"),)),
     )
 
@@ -148,11 +148,11 @@ def test_service_summary_combines_runtime_and_startup_facts(monkeypatch):
 
 def test_service_summary_fails_closed_on_presence_disagreement(monkeypatch):
     monkeypatch.setattr(
-        "mcp_guard.windows_service.ServiceRuntimeProvider.read_summary",
+        "policylatch.windows_service.ServiceRuntimeProvider.read_summary",
         lambda self, target: StateSummary(present=False),
     )
     monkeypatch.setattr(
-        "mcp_guard.windows_service.ServiceStartupProvider.read_summary",
+        "policylatch.windows_service.ServiceStartupProvider.read_summary",
         lambda self, target: StateSummary(present=True, facts=(("startup_type", "automatic"),)),
     )
 

@@ -3,20 +3,20 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guard.validation import InputError
-from mcp_guard.windows_audit import (
+from policylatch.validation import InputError
+from policylatch.windows_audit import (
     StateSummary,
     parse_windows_audit_record,
     parse_windows_setting_action,
 )
-from mcp_guard.windows_compare import compare_windows_snapshots
-from mcp_guard.windows_history import (
+from policylatch.windows_compare import compare_windows_snapshots
+from policylatch.windows_history import (
     HistoryError,
     append_audit_record,
     filter_audit_history,
     load_audit_history,
 )
-from mcp_guard.windows_providers import ObservedWindowsSnapshot
+from policylatch.windows_providers import ObservedWindowsSnapshot
 
 ROOT = Path(__file__).parents[1]
 
@@ -125,7 +125,7 @@ def test_invalid_history_reports_line_number(tmp_path):
 def test_oversized_single_line_is_rejected_by_bounded_reader(tmp_path, monkeypatch):
     path = tmp_path / "oversized.jsonl"
     path.write_text("x" * 33, encoding="utf-8")
-    monkeypatch.setattr("mcp_guard.windows_history.MAX_HISTORY_LINE_BYTES", 32)
+    monkeypatch.setattr("policylatch.windows_history.MAX_HISTORY_LINE_BYTES", 32)
 
     with pytest.raises(HistoryError, match="line 1 is too large"):
         load_audit_history(path)

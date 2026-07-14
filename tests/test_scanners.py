@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guard.policy import load_policy
-from mcp_guard.scanners import scan_manifest
-from mcp_guard.validation import InputError
+from policylatch.policy import load_policy
+from policylatch.scanners import scan_manifest
+from policylatch.validation import InputError
 
 ROOT = Path(__file__).parents[1]
 

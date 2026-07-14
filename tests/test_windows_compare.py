@@ -1,8 +1,8 @@
 import pytest
 
-from mcp_guard.windows_audit import StateSummary, parse_windows_setting_action
-from mcp_guard.windows_compare import ComparisonError, compare_windows_snapshots
-from mcp_guard.windows_providers import ObservedWindowsSnapshot
+from policylatch.windows_audit import StateSummary, parse_windows_setting_action
+from policylatch.windows_compare import ComparisonError, compare_windows_snapshots
+from policylatch.windows_providers import ObservedWindowsSnapshot
 
 
 def _snapshot(timestamp, present, *, category="registry", target="HKCU\\Demo"):

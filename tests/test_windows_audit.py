@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guard.validation import InputError
-from mcp_guard.windows_audit import parse_windows_setting_action
+from policylatch.validation import InputError
+from policylatch.windows_audit import parse_windows_setting_action
 
 ROOT = Path(__file__).parents[1]
 FIXTURES = ROOT / "examples/windows-audit"

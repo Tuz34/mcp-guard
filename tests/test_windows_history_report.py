@@ -1,5 +1,5 @@
-from mcp_guard.windows_audit import parse_windows_audit_record, parse_windows_setting_action
-from mcp_guard.windows_history_report import history_document, history_html_report
+from policylatch.windows_audit import parse_windows_audit_record, parse_windows_setting_action
+from policylatch.windows_history_report import history_document, history_html_report
 
 
 def _record(target="HKCU\\SyntheticDemo"):

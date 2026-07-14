@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guard.evaluator import evaluate_action
-from mcp_guard.policy import load_policy
-from mcp_guard.validation import InputError
+from policylatch.evaluator import evaluate_action
+from policylatch.policy import load_policy
+from policylatch.validation import InputError
 
 ROOT = Path(__file__).parents[1]
 POLICY = load_policy(ROOT / "examples/policies/balanced.yaml")

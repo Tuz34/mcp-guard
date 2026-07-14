@@ -1,11 +1,11 @@
 import pytest
 
-from mcp_guard.windows_providers import (
+from policylatch.windows_providers import (
     ProviderContractError,
     ProviderReadError,
     collect_windows_snapshot,
 )
-from mcp_guard.windows_registry import RegistryKeyPresenceProvider
+from policylatch.windows_registry import RegistryKeyPresenceProvider
 
 
 class SyntheticWinreg:
@@ -37,8 +37,8 @@ class SyntheticWinreg:
 
 
 def _enable_windows(monkeypatch, backend):
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
-    monkeypatch.setattr("mcp_guard.windows_registry._load_winreg", lambda: backend)
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_registry._load_winreg", lambda: backend)
 
 
 def test_reports_existing_hkcu_key_without_reading_values(monkeypatch):

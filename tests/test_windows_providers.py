@@ -2,9 +2,9 @@ from dataclasses import dataclass
 
 import pytest
 
-from mcp_guard.validation import InputError
-from mcp_guard.windows_audit import StateSummary
-from mcp_guard.windows_providers import (
+from policylatch.validation import InputError
+from policylatch.windows_audit import StateSummary
+from policylatch.windows_providers import (
     ProviderContractError,
     ProviderNotEnabledError,
     UnsupportedPlatformError,
@@ -34,7 +34,7 @@ def test_disabled_collection_touches_neither_platform_nor_provider(monkeypatch):
         platform_calls += 1
         return "Windows"
 
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", unexpected_platform_probe)
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", unexpected_platform_probe)
 
     with pytest.raises(ProviderNotEnabledError, match="enabled=True"):
         collect_windows_snapshot(provider, "SyntheticDemoService", enabled=False)
@@ -45,7 +45,7 @@ def test_disabled_collection_touches_neither_platform_nor_provider(monkeypatch):
 
 def test_unsupported_platform_does_not_call_provider(monkeypatch):
     provider = SyntheticProvider()
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Linux")
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Linux")
 
     with pytest.raises(UnsupportedPlatformError, match="unsupported on 'Linux'"):
         collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True)
@@ -55,7 +55,7 @@ def test_unsupported_platform_does_not_call_provider(monkeypatch):
 
 def test_explicit_windows_collection_returns_observed_summary(monkeypatch):
     provider = SyntheticProvider()
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
 
     snapshot = collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True).to_dict()
 
@@ -67,7 +67,7 @@ def test_explicit_windows_collection_returns_observed_summary(monkeypatch):
 
 def test_provider_cannot_claim_verified_state(monkeypatch):
     provider = SyntheticProvider()
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
 
     snapshot = collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True)
 
@@ -76,7 +76,7 @@ def test_provider_cannot_claim_verified_state(monkeypatch):
 
 def test_rejects_non_redacted_provider_result(monkeypatch):
     provider = SyntheticProvider(summary=StateSummary(present=True, redacted=False))
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
 
     with pytest.raises(ProviderContractError, match="redacted StateSummary"):
         collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True)
@@ -91,7 +91,7 @@ def test_rejects_non_redacted_provider_result(monkeypatch):
 )
 def test_collector_revalidates_third_party_provider_facts(monkeypatch, facts):
     provider = SyntheticProvider(summary=StateSummary(present=True, facts=facts))
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
 
     with pytest.raises(ProviderContractError, match="invalid summary"):
         collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True)
@@ -99,7 +99,7 @@ def test_collector_revalidates_third_party_provider_facts(monkeypatch, facts):
 
 def test_rejects_unknown_provider_category_before_provider_call(monkeypatch):
     provider = SyntheticProvider(category="everything")
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
 
     with pytest.raises(ProviderContractError, match="Provider category"):
         collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True)
@@ -109,7 +109,7 @@ def test_rejects_unknown_provider_category_before_provider_call(monkeypatch):
 
 def test_rejects_empty_target_before_provider_call(monkeypatch):
     provider = SyntheticProvider()
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
 
     with pytest.raises(ProviderContractError, match="target"):
         collect_windows_snapshot(provider, "  ", enabled=True)
@@ -124,7 +124,7 @@ def test_observed_snapshot_round_trips_through_strict_parser(monkeypatch):
             facts=(("runtime_state", "running"),),
         )
     )
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
     snapshot = collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True)
 
     loaded = parse_observed_windows_snapshot(snapshot.to_dict())
@@ -134,7 +134,7 @@ def test_observed_snapshot_round_trips_through_strict_parser(monkeypatch):
 
 def test_saved_snapshot_cannot_claim_verified_state(monkeypatch):
     provider = SyntheticProvider()
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
     payload = collect_windows_snapshot(provider, "SyntheticDemoService", enabled=True).to_dict()
     payload["verification_state"] = "verified"
 

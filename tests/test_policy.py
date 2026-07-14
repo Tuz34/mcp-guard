@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_guard.policy import PolicyError, load_policy
+from policylatch.policy import PolicyError, load_policy
 
 ROOT = Path(__file__).parents[1]
 

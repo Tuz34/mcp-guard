@@ -2,12 +2,12 @@ from dataclasses import dataclass
 
 import pytest
 
-from mcp_guard.windows_providers import (
+from policylatch.windows_providers import (
     ProviderContractError,
     ProviderReadError,
     collect_windows_snapshot,
 )
-from mcp_guard.windows_settings import (
+from policylatch.windows_settings import (
     FirewallProfileProvider,
     FirewallRulePresenceProvider,
     LongPathsPolicyProvider,
@@ -53,8 +53,8 @@ class SyntheticWinreg:
 
 
 def _enable(monkeypatch, backend):
-    monkeypatch.setattr("mcp_guard.windows_providers.platform.system", lambda: "Windows")
-    monkeypatch.setattr("mcp_guard.windows_registry_state._load_winreg", lambda: backend)
+    monkeypatch.setattr("policylatch.windows_providers.platform.system", lambda: "Windows")
+    monkeypatch.setattr("policylatch.windows_registry_state._load_winreg", lambda: backend)
 
 
 @pytest.mark.parametrize("target", ["domain", "private", "public"])
