@@ -9,6 +9,7 @@ from typing import Any
 from . import __version__
 from .evaluator import evaluate_action
 from .gateway import MAX_GATEWAY_REQUEST_BYTES, evaluate_mcp_request
+from .gateway_trace import GatewayTraceError, gateway_trace_document, load_gateway_trace
 from .html_report import html_report
 from .models import aggregate
 from .policy import PolicyError, load_policy
@@ -100,6 +101,14 @@ def build_parser() -> argparse.ArgumentParser:
     gateway.add_argument("--policy", required=True)
     gateway.add_argument("--format", choices=["json", "markdown", "html", "sarif"], default="json")
     gateway.add_argument("--output", help="Write the report to this path instead of stdout.")
+    replay = sub.add_parser(
+        "gateway-replay",
+        help="Evaluate a bounded synthetic MCP tools/call JSONL trace without forwarding.",
+    )
+    replay.add_argument("--input", required=True)
+    replay.add_argument("--policy", required=True)
+    replay.add_argument("--format", choices=["json", "markdown", "html", "sarif"], default="json")
+    replay.add_argument("--output", help="Write the report to this path instead of stdout.")
     report = sub.add_parser("report", help="Convert a saved JSON result into a report.")
     report.add_argument("--input", required=True)
     report.add_argument(
@@ -240,7 +249,14 @@ def run(args: argparse.Namespace) -> int:
         renderer = history_json_report if args.format == "json" else history_html_report
         _write(renderer(payload), args.output)
         return 0
-    if args.command == "report":
+    if args.command == "gateway-replay":
+        policy = load_policy(args.policy)
+        payload = gateway_trace_document(
+            load_gateway_trace(args.input, policy),
+            source=args.input,
+            policy=args.policy,
+        )
+    elif args.command == "report":
         payload = _read_json(args.input)
     elif args.command == "check":
         data = _read_json(args.action)
@@ -268,7 +284,14 @@ def run(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     try:
         return run(build_parser().parse_args(argv))
-    except (InputError, PolicyError, WindowsProviderError, OSError, ValueError) as exc:
+    except (
+        GatewayTraceError,
+        InputError,
+        PolicyError,
+        WindowsProviderError,
+        OSError,
+        ValueError,
+    ) as exc:
         print(f"mcp-guard: error: {exc}", file=sys.stderr)
         return 3
 

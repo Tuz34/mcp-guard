@@ -24,6 +24,7 @@ The following are security-relevant:
 - Unexpected file or network access by the CLI.
 - A gateway decision copying raw tool arguments into its output or claiming a
   request was forwarded.
+- Gateway trace parsing that bypasses line, total-size, or record-count limits.
 - Report output that exposes data not present in the supplied input or policy.
 - A Windows provider reading before explicit opt-in, querying raw values, changing a
   setting, or reporting an observation as independently verified.

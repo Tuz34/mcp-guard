@@ -20,6 +20,8 @@ green cross-platform CI run and final review.
 - Default-deny synthetic gateway policy, safe/denied request fixtures, and an
   explicit gateway trust/bypass contract.
 - Composite GitHub Action support for synthetic no-forward `gateway-check` runs.
+- Bounded no-forward `gateway-replay` for synthetic JSONL traces, with per-line,
+  total-size, record-count, identifier, and nesting limits.
 - Reusable composite GitHub Action for `check` and `scan`, with explicit decision,
   exit-code, report-path, and fail-threshold outputs.
 - Deterministic SARIF 2.1.0 reports for GitHub Code Scanning, with deduplicated

@@ -8,11 +8,11 @@ branding:
 
 inputs:
   command:
-    description: Run check, scan, or the no-forward gateway-check.
+    description: Run check, scan, gateway-check, or gateway-replay.
     required: false
     default: check
   input-file:
-    description: Path to the action, manifest, or MCP tools/call JSON.
+    description: Path to the action, manifest, MCP tools/call JSON, or synthetic JSONL trace.
     required: true
   policy-file:
     description: Path to the local mcp-guard YAML policy.
@@ -70,7 +70,8 @@ runs:
           check) input_flag="--action" ;;
           scan) input_flag="--mcp-config" ;;
           gateway-check) input_flag="--request" ;;
-          *) echo "mcp-guard action: command must be check, scan, or gateway-check." >&2; exit 3 ;;
+          gateway-replay) input_flag="--input" ;;
+          *) echo "mcp-guard action: unsupported command." >&2; exit 3 ;;
         esac
         case "$MCP_GUARD_FORMAT" in
           json|markdown|html|sarif) ;;

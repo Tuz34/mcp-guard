@@ -27,12 +27,8 @@ class GatewayResult:
     evaluation: Evaluation
     capabilities: tuple[str, ...]
 
-    def to_dict(self, *, source: str) -> dict[str, Any]:
+    def to_entry(self) -> dict[str, Any]:
         return {
-            "schema_version": 1,
-            "kind": "mcp_gateway_decision",
-            "source": source,
-            "gateway": {"mode": "dry-run", "forwarded": False},
             "request": {
                 "jsonrpc": "2.0",
                 "id": self.call.request_id,
@@ -41,6 +37,15 @@ class GatewayResult:
             },
             "capabilities": list(self.capabilities),
             **self.evaluation.to_dict(),
+        }
+
+    def to_dict(self, *, source: str) -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "kind": "mcp_gateway_decision",
+            "source": source,
+            "gateway": {"mode": "dry-run", "forwarded": False},
+            **self.to_entry(),
         }
 
 

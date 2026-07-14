@@ -1,0 +1,3 @@
+{"jsonrpc":"2.0","id":"trace-1","method":"tools/call","params":{"name":"read_file","arguments":{"path":"docs/README.md"}}}
+{"jsonrpc":"2.0","id":"trace-2","method":"tools/call","params":{"name":"run_command","arguments":{"command":"Remove-Item -Recurse C:\\synthetic-demo"}}}
+{"jsonrpc":"2.0","id":"trace-3","method":"tools/call","params":{"name":"unknown_tool","arguments":{}}}

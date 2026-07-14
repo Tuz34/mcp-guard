@@ -30,6 +30,7 @@ def test_composite_action_runs_only_the_local_mcp_guard_cli():
     assert 'pip install "$GITHUB_ACTION_PATH"' in scripts
     assert 'python -m mcp_guard "$MCP_GUARD_COMMAND"' in scripts
     assert 'gateway-check) input_flag="--request"' in scripts
+    assert 'gateway-replay) input_flag="--input"' in scripts
     assert "curl" not in scripts
     assert "Invoke-WebRequest" not in scripts
     assert "powershell" not in scripts.lower()

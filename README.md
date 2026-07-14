@@ -48,6 +48,15 @@ mcp-guard gateway-check \
 The result contains `"mode": "dry-run"`, `"forwarded": false`, and an explained
 `deny` decision. Raw tool arguments are not copied into the result.
 
+Replay a bounded synthetic JSONL trace through the same no-forward boundary:
+
+```bash
+mcp-guard gateway-replay \
+  --input examples/gateway/synthetic-trace.jsonl \
+  --policy examples/policies/gateway-strict.yaml \
+  --format markdown
+```
+
 Evaluate a proposed agent action:
 
 ```bash
@@ -324,11 +333,11 @@ revision and does not execute the proposed tool call.
   run: echo "Decision: ${{ steps.guard.outputs.decision }}"
 ```
 
-`command` accepts `check`, `scan`, or the no-forward `gateway-check`. For the
-gateway command, `input-file` must point to one saved JSON-RPC `tools/call`
-request. `fail-on` accepts `never`, `warn`, or `deny`; malformed
-input/configuration always fails with exit code `3`. Pin a reviewed commit until
-a release tag is available.
+`command` accepts `check`, `scan`, `gateway-check`, or `gateway-replay`. For
+gateway commands, `input-file` must point to one saved JSON-RPC `tools/call`
+request or a synthetic JSONL trace. Both modes remain no-forward. `fail-on`
+accepts `never`, `warn`, or `deny`; malformed input/configuration always fails
+with exit code `3`. Pin a reviewed commit until a release tag is available.
 
 For GitHub Code Scanning, generate SARIF without hiding the subsequent upload
 step behind a policy decision, then upload the artifact with GitHub's CodeQL
@@ -377,9 +386,9 @@ types, fixtures, and false-positive tests are welcome.
 
 - **v0.1 (current MVP):** Policy checks, MCP/tool manifest scanning, explained
   JSON/Markdown/HTML reports, synthetic examples, and cross-platform tests.
-- **Current development (unreleased):** No-forward `tools/call` gateway checks,
-  explicit tool allow/deny rules, opt-in Windows audit snapshots/history, SARIF,
-  and the reusable GitHub Action.
+- **Current development (unreleased):** No-forward `tools/call` gateway checks
+  and bounded synthetic trace replay, explicit tool allow/deny rules, opt-in
+  Windows audit snapshots/history, SARIF, and the reusable GitHub Action.
 - **Next gateway milestone:** A narrowly scoped stdio transport wrapper with an
   explicit upstream command, fail-closed limits, synthetic replay tests, and no
   hidden configuration changes.

@@ -23,6 +23,15 @@ mcp-guard gateway-check \
   --policy examples/policies/gateway-strict.yaml
 ```
 
+For multiple synthetic requests, `gateway-replay` reads one JSON-RPC object per
+JSONL line and returns the most restrictive aggregate decision:
+
+```bash
+mcp-guard gateway-replay \
+  --input examples/gateway/synthetic-trace.jsonl \
+  --policy examples/policies/gateway-strict.yaml
+```
+
 Only JSON-RPC 2.0 `tools/call` requests are accepted. Invalid JSON, unsupported
 methods, malformed params, and invalid recognized arguments exit with code `3`.
 An integration must treat every non-zero exit code as a closed gate unless it has
@@ -31,6 +40,9 @@ an explicit human-approval path for `warn`.
 The saved request is capped at 1 MiB before JSON parsing. Tool names and string
 request IDs are capped at 256 characters because both may be copied into the
 decision document. Excessive JSON nesting is also rejected as invalid input.
+Trace replay additionally caps each line at 1 MiB, the full trace at 8 MiB, and
+the evaluated record count at 1,000. It reads incrementally and aborts the entire
+replay on the first invalid record.
 
 ## Policy projection
 

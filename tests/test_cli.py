@@ -140,6 +140,27 @@ def test_gateway_check_can_render_markdown(capsys):
     assert "synthetic-demo" not in output
 
 
+def test_gateway_replay_writes_aggregate_report(tmp_path):
+    output = tmp_path / "replay.json"
+    code = main(
+        [
+            "gateway-replay",
+            "--input",
+            str(ROOT / "examples/gateway/synthetic-trace.jsonl"),
+            "--policy",
+            str(ROOT / "examples/policies/gateway-strict.yaml"),
+            "--output",
+            str(output),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert code == 2
+    assert payload["kind"] == "mcp_gateway_replay"
+    assert payload["summary"] == {"total": 3, "allow": 1, "warn": 0, "deny": 2}
+    assert payload["gateway"]["forwarded"] is False
+
+
 def test_invalid_action_returns_input_error(tmp_path, capsys):
     action = tmp_path / "action.json"
     action.write_text('{"action_type": "unknown"}', encoding="utf-8")
