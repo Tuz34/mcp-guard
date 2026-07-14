@@ -16,6 +16,7 @@ from .adapters import (
     safe_policy_label,
     validate_adapter_config,
 )
+from .budgets import action_budget_facts, budget_check_document
 from .evaluator import evaluate_action
 from .gateway import MAX_GATEWAY_REQUEST_BYTES, evaluate_mcp_request
 from .gateway_trace import GatewayTraceError, gateway_trace_document, load_gateway_trace
@@ -266,6 +267,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--format", choices=["json", "markdown", "html", "sarif"], default="json"
     )
     result_scan.add_argument("--output")
+    budget_check = sub.add_parser(
+        "budget-check",
+        help="Evaluate cumulative policy budgets against a proposed-stage journal reservation.",
+    )
+    budget_check.add_argument("--input", required=True)
+    budget_check.add_argument("--journal", required=True)
+    budget_check.add_argument("--event-id", required=True)
+    _add_policy_selector(budget_check)
+    budget_check.add_argument(
+        "--format", choices=["json", "markdown", "html", "sarif"], default="json"
+    )
+    budget_check.add_argument("--output")
     policy_init = sub.add_parser(
         "policy-init", help="Generate a non-enforceable policy draft or check policy coverage."
     )
@@ -349,6 +362,7 @@ def _action_document(
         "source": source,
         "policy": policy_label,
         "policy_provenance": policy_provenance(policy),
+        "budget_facts": action_budget_facts(data),
         **evaluation.to_dict(),
     }
     return attach_receipt(document, policy, action_request_projection(data))
@@ -403,6 +417,7 @@ def _doctor_document(policy: dict[str, Any], policy_label: str) -> dict[str, Any
         "policy": policy_label,
         "default_decision": policy["default_decision"],
         "rule_counts": rule_counts,
+        "budget_count": len(policy.get("budgets", {})),
         "policy_provenance": policy_provenance(policy),
         "network_access": False,
         "files_modified": False,
@@ -426,6 +441,7 @@ def _doctor_markdown(payload: dict[str, Any]) -> str:
     lines.extend(
         f"- `{section}`: {count}" for section, count in sorted(payload["rule_counts"].items())
     )
+    lines.append(f"- `budgets`: {payload['budget_count']}")
     lines.extend(["", "> Offline validation only; no files were modified.", ""])
     return "\n".join(lines)
 
@@ -484,6 +500,24 @@ def _explain_markdown(payload: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "budget-check":
+        policy, label = _selected_policy(args)
+        payload = budget_check_document(
+            _read_json(args.input),
+            policy,
+            label,
+            args.journal,
+            args.event_id,
+        )
+        validate_report(payload)
+        rendered = {
+            "json": json_report,
+            "markdown": markdown_report,
+            "html": html_report,
+            "sarif": sarif_report,
+        }[args.format](payload)
+        _write(rendered, args.output)
+        return EXIT_CODES[payload["decision"]]
     if args.command == "result-scan":
         payload = scan_tool_result(
             _read_json(args.input, max_bytes=MAX_TOOL_RESULT_BYTES), args.input

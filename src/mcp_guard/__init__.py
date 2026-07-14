@@ -13,6 +13,7 @@ from policylatch import __version__
 
 _MODULES = (
     "adapters",
+    "budgets",
     "cli",
     "environment",
     "evaluator",

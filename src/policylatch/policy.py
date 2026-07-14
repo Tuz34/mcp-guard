@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+import re
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -26,6 +28,9 @@ RULE_KEYS = {
         "warn_if_schema_contains",
     },
 }
+MAX_BUDGETS = 128
+_BUDGET_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+_ACTION_TYPES = {"file", "filesystem", "network", "shell"}
 
 
 class PolicyError(ValueError):
@@ -79,6 +84,7 @@ def _validate_mapping(raw: dict[str, Any]) -> None:
         "rules",
         "profile",
         "extends",
+        "budgets",
     }
     if unknown_top_level:
         names = ", ".join(sorted(unknown_top_level))
@@ -124,17 +130,73 @@ def _validate_mapping(raw: dict[str, Any]) -> None:
         for name, patterns in values.items():
             _string_list(patterns, f"rules.{section}.{name}")
 
+    budgets = raw.get("budgets", {})
+    if not isinstance(budgets, dict) or len(budgets) > MAX_BUDGETS:
+        raise PolicyError(f"budgets must be a mapping with at most {MAX_BUDGETS} entries.")
+    allowed_budget_fields = {
+        "metric",
+        "limit",
+        "window",
+        "effect",
+        "action_types",
+        "per_tool",
+        "count_duplicates",
+        "payload_classes",
+    }
+    for budget_id, budget in budgets.items():
+        if not isinstance(budget_id, str) or not _BUDGET_ID.fullmatch(budget_id):
+            raise PolicyError("Budget IDs may use 1-64 letters, numbers, dot, dash, or underscore.")
+        if not isinstance(budget, dict):
+            raise PolicyError(f"budgets.{budget_id} must be a mapping.")
+        unknown = set(budget) - allowed_budget_fields
+        if unknown:
+            raise PolicyError(f"budgets.{budget_id} contains unknown fields.")
+        if budget.get("metric") not in {"calls", "impact", "unique_targets"}:
+            raise PolicyError(f"budgets.{budget_id}.metric is invalid.")
+        limit = budget.get("limit")
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, (int, float))
+            or not math.isfinite(limit)
+            or limit <= 0
+        ):
+            raise PolicyError(f"budgets.{budget_id}.limit must be a positive finite number.")
+        if budget["metric"] != "impact" and not isinstance(limit, int):
+            raise PolicyError(f"budgets.{budget_id}.limit must be an integer for this metric.")
+        if budget.get("window") not in {"hour", "day"}:
+            raise PolicyError(f"budgets.{budget_id}.window must be hour or day.")
+        if budget.get("effect", "deny") not in {"warn", "deny"}:
+            raise PolicyError(f"budgets.{budget_id}.effect must be warn or deny.")
+        action_types = budget.get("action_types", [])
+        if (
+            not isinstance(action_types, list)
+            or not action_types
+            or not all(isinstance(item, str) and item in _ACTION_TYPES for item in action_types)
+        ):
+            raise PolicyError(f"budgets.{budget_id}.action_types must list supported actions.")
+        for field in ("per_tool", "count_duplicates"):
+            if field in budget and not isinstance(budget[field], bool):
+                raise PolicyError(f"budgets.{budget_id}.{field} must be boolean.")
+        payload_classes = budget.get("payload_classes", [])
+        if not isinstance(payload_classes, list) or not all(
+            isinstance(item, str) and item in {"small", "medium", "large"}
+            for item in payload_classes
+        ):
+            raise PolicyError(f"budgets.{budget_id}.payload_classes is invalid.")
+
 
 def _empty_policy() -> dict[str, Any]:
     return {
         "version": 1,
         "default_decision": "warn",
         "rules": {},
+        "budgets": {},
         "_provenance": {
             "profiles": [],
             "sources": [],
             "default_decision_source": "built-in-default",
             "rule_sources": {},
+            "budget_sources": {},
         },
     }
 
@@ -149,6 +211,10 @@ def _merge(target: dict[str, Any], overlay: dict[str, Any], source: str) -> None
         for name, patterns in values.items():
             destination[name] = list(patterns)
             provenance["rule_sources"][f"{section}.{name}"] = source
+    for budget_id, budget in overlay.get("budgets", {}).items():
+        target["budgets"][budget_id] = deepcopy(budget)
+        provenance["budget_sources"][budget_id] = source
+        provenance["rule_sources"][f"budgets.{budget_id}"] = source
     if source not in provenance["sources"]:
         provenance["sources"].append(source)
 
@@ -166,6 +232,11 @@ def _merge_resolved(target: dict[str, Any], resolved: dict[str, Any]) -> None:
             destination[name] = list(patterns)
             key = f"{section}.{name}"
             target["_provenance"]["rule_sources"][key] = source_map[key]
+    for budget_id, budget in resolved.get("budgets", {}).items():
+        target["budgets"][budget_id] = deepcopy(budget)
+        source = resolved["_provenance"]["budget_sources"][budget_id]
+        target["_provenance"]["budget_sources"][budget_id] = source
+        target["_provenance"]["rule_sources"][f"budgets.{budget_id}"] = source
     for profile in resolved["_provenance"]["profiles"]:
         if profile not in target["_provenance"]["profiles"]:
             target["_provenance"]["profiles"].append(profile)
@@ -241,7 +312,9 @@ def _resolve_file(
         _merge_resolved(result, inherited)
 
     own_fields = {
-        key: deepcopy(value) for key, value in raw.items() if key in {"default_decision", "rules"}
+        key: deepcopy(value)
+        for key, value in raw.items()
+        if key in {"default_decision", "rules", "budgets"}
     }
     _merge(result, own_fields, _source_label(resolved_path, root))
     return result

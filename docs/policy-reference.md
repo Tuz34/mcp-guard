@@ -13,6 +13,7 @@ silently weaken a policy.
 | `profile` | no | Built-in `minimal`, `balanced`, `strict`, or `ci` base. |
 | `extends` | no | Relative local policy path, or a list merged left-to-right. |
 | `rules` | no | Mapping of rule sections. |
+| `budgets` | no | Named cumulative UTC window limits; see [policy budgets](policy-budgets.md). |
 
 ## Profiles and local inheritance
 
@@ -49,6 +50,10 @@ network.
 modifying files. Decision JSON and Markdown include `policy_provenance`; `explain`
 reads a saved decision and maps each finding to the profile or policy file that
 defined the matched rule.
+
+Named budgets replace the inherited budget with the same ID. Budget provenance
+is recorded alongside normal rule provenance, and `doctor` reports the resolved
+budget count.
 
 ## Rule sections
 

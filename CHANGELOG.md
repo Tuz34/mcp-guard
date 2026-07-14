@@ -21,6 +21,9 @@ green cross-platform CI run and final review.
 
 ### Added
 
+- YAML policy budgets for call, impact, unique-target, per-tool, payload-class,
+  and retry-aware cumulative caps with reservation-first journal checks and
+  fail-closed unknown state.
 - Versioned, bounded `tool_result` post-flight scanner with deterministic
   injection, secret-like, PII-field, external-URL, and exfiltration categories;
   explicit clean/review/block-next-step outcomes; and redacted reports.

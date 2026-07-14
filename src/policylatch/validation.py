@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 
@@ -45,6 +46,33 @@ def validate_action(action: dict[str, Any]) -> None:
             raise InputError(f"action.{optional} must be a string when provided.")
     if "metadata" in action and not isinstance(action["metadata"], dict):
         raise InputError("action.metadata must be an object when provided.")
+    if "budget" in action:
+        budget = action["budget"]
+        allowed = {"confirmation", "impact", "payload_bytes", "target_id"}
+        if not isinstance(budget, dict) or set(budget) - allowed:
+            raise InputError("action.budget must contain only supported budget fields.")
+        if budget.get("confirmation") not in {"confirmed", "estimated", "unknown"}:
+            raise InputError("action.budget.confirmation is invalid.")
+        impact = budget.get("impact")
+        if impact is not None and (
+            isinstance(impact, bool)
+            or not isinstance(impact, (int, float))
+            or not math.isfinite(impact)
+            or not 0 <= impact <= 1_000_000_000_000
+        ):
+            raise InputError("action.budget.impact must be a finite non-negative number.")
+        payload_bytes = budget.get("payload_bytes")
+        if payload_bytes is not None and (
+            isinstance(payload_bytes, bool)
+            or not isinstance(payload_bytes, int)
+            or not 0 <= payload_bytes <= 1_000_000_000_000
+        ):
+            raise InputError("action.budget.payload_bytes must be a non-negative integer.")
+        target_id = budget.get("target_id")
+        if target_id is not None and (
+            not isinstance(target_id, str) or not target_id.strip() or len(target_id) > 256
+        ):
+            raise InputError("action.budget.target_id must be a non-empty string up to 256 chars.")
 
 
 def manifest_entries(manifest: dict[str, Any]) -> list[dict[str, Any]]:

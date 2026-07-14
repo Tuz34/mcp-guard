@@ -1,0 +1,20 @@
+version: 1
+profile: balanced
+budgets:
+  hourly_shell_calls:
+    metric: calls
+    limit: 2
+    window: hour
+    effect: deny
+    action_types:
+      - shell
+    per_tool: true
+    count_duplicates: true
+  daily_shell_impact:
+    metric: impact
+    limit: 10
+    window: day
+    effect: warn
+    action_types:
+      - shell
+    count_duplicates: true

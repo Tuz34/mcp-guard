@@ -15,7 +15,8 @@ policylatch journal-append \
 
 Each record contains stable request/event fingerprints, receipt and policy
 hashes, decision, evaluator version, rule IDs, normalized UTC time, and replay
-metadata. Lifecycle stages are `proposed`, `evaluated`, and `observed-result`.
+metadata. It can also carry explicit numeric impact plus redacted tool/target and
+payload-size budget facts. Lifecycle stages are `proposed`, `evaluated`, and `observed-result`.
 They are caller assertions; every record remains `verification_state:
 unverified`, and an observed-result record stores no result body.
 

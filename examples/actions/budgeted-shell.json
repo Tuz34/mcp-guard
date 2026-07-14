@@ -1,0 +1,11 @@
+{
+  "action_type": "shell",
+  "command": "echo synthetic-budget-demo",
+  "tool": "synthetic_shell",
+  "budget": {
+    "confirmation": "confirmed",
+    "impact": 4,
+    "payload_bytes": 128,
+    "target_id": "synthetic-target"
+  }
+}

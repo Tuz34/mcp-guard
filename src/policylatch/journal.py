@@ -64,6 +64,7 @@ def _event_core(entry: dict[str, Any]) -> dict[str, Any]:
         "policy_hash",
         "evaluator_version",
         "rule_ids",
+        "budget_facts",
     )
     return {field: entry[field] for field in fields}
 
@@ -83,6 +84,7 @@ def validate_journal_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "evaluator_version",
         "rule_ids",
         "duplicate",
+        "budget_facts",
     }
     if set(entry) != required:
         raise InputError("Journal entry fields do not match schema version 1.")
@@ -109,6 +111,35 @@ def validate_journal_entry(entry: dict[str, Any]) -> dict[str, Any]:
         isinstance(item, str) for item in entry["rule_ids"]
     ):
         raise InputError("Journal entry rule_ids must be an array of strings.")
+    budget_facts = entry.get("budget_facts")
+    if not isinstance(budget_facts, dict) or set(budget_facts) != {
+        "action_type",
+        "confirmation",
+        "impact",
+        "payload_size_class",
+        "target_fingerprint",
+        "tool_fingerprint",
+    }:
+        raise InputError("Journal entry budget_facts are invalid.")
+    if budget_facts["action_type"] not in {
+        "file",
+        "filesystem",
+        "network",
+        "shell",
+        "unknown",
+    } or budget_facts["confirmation"] not in {"confirmed", "estimated", "unknown"}:
+        raise InputError("Journal entry budget fact state is invalid.")
+    if budget_facts["payload_size_class"] not in {"small", "medium", "large", "unknown"}:
+        raise InputError("Journal entry payload size class is invalid.")
+    impact = budget_facts["impact"]
+    if impact is not None and (
+        isinstance(impact, bool) or not isinstance(impact, (int, float)) or impact < 0
+    ):
+        raise InputError("Journal entry impact is invalid.")
+    for field in ("target_fingerprint", "tool_fingerprint"):
+        value = budget_facts[field]
+        if value is not None and (not isinstance(value, str) or not _FINGERPRINT.fullmatch(value)):
+            raise InputError(f"Journal entry {field} is invalid.")
     duplicate = entry.get("duplicate")
     if not isinstance(duplicate, dict) or set(duplicate) != {
         "detected",
@@ -201,6 +232,18 @@ def journal_entry_from_report(
     window_seconds = _window(window_seconds)
     timestamp, parsed_at = _timestamp(recorded_at)
     receipt = _receipt_from_report(report)
+    budget_facts = report.get("budget_facts")
+    if budget_facts is None:
+        budget_facts = {
+            "action_type": "unknown",
+            "confirmation": "unknown",
+            "impact": None,
+            "payload_size_class": "unknown",
+            "target_fingerprint": None,
+            "tool_fingerprint": None,
+        }
+    if not isinstance(budget_facts, dict):
+        raise InputError("Journal input report budget_facts must be an object.")
     request_id = receipt["request"]["fingerprint"]
     prior = _prior_duplicate(records, request_id, parsed_at, window_seconds)
     entry = {
@@ -215,6 +258,7 @@ def journal_entry_from_report(
         "policy_hash": receipt["policy"]["hash"],
         "evaluator_version": receipt["evaluator"]["version"],
         "rule_ids": sorted({rule["id"] for rule in receipt["rules"]}),
+        "budget_facts": dict(budget_facts),
         "duplicate": {
             "detected": prior is not None,
             "window_seconds": window_seconds,

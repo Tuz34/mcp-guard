@@ -29,6 +29,7 @@ def canonical_policy_hash(policy: dict[str, Any]) -> str:
         "version": policy["version"],
         "default_decision": policy["default_decision"],
         "rules": policy["rules"],
+        "budgets": policy.get("budgets", {}),
     }
     return _hash(semantic)
 
@@ -45,6 +46,9 @@ def action_request_projection(action: dict[str, Any]) -> dict[str, Any]:
         "fields": fixed_fields,
         "actor_present": "actor" in action,
         "tool_present": "tool" in action,
+        "budget_fields": sorted(action.get("budget", {}))
+        if isinstance(action.get("budget"), dict)
+        else [],
     }
 
 

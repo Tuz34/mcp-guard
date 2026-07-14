@@ -27,6 +27,28 @@ def _rules_schema() -> dict[str, Any]:
 
 
 def policy_schema() -> dict[str, Any]:
+    budget = {
+        "type": "object",
+        "required": ["metric", "limit", "window", "action_types"],
+        "properties": {
+            "metric": {"enum": ["calls", "impact", "unique_targets"]},
+            "limit": {"type": "number", "exclusiveMinimum": 0},
+            "window": {"enum": ["hour", "day"]},
+            "effect": {"enum": ["warn", "deny"]},
+            "action_types": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"enum": ["file", "filesystem", "network", "shell"]},
+            },
+            "per_tool": {"type": "boolean"},
+            "count_duplicates": {"type": "boolean"},
+            "payload_classes": {
+                "type": "array",
+                "items": {"enum": ["small", "medium", "large"]},
+            },
+        },
+        "additionalProperties": False,
+    }
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://github.com/Tuz34/policylatch/schemas/policy-v1.json",
@@ -44,16 +66,42 @@ def policy_schema() -> dict[str, Any]:
             },
             "default_decision": {"enum": sorted(VALID_DECISIONS)},
             "rules": _rules_schema(),
+            "budgets": {
+                "type": "object",
+                "maxProperties": 128,
+                "propertyNames": {"pattern": "^[A-Za-z0-9._-]{1,64}$"},
+                "additionalProperties": budget,
+            },
         },
         "additionalProperties": False,
     }
 
 
 def action_schema() -> dict[str, Any]:
+    budget = {
+        "type": "object",
+        "required": ["confirmation"],
+        "properties": {
+            "confirmation": {"enum": ["confirmed", "estimated", "unknown"]},
+            "impact": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000,
+            },
+            "payload_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000,
+            },
+            "target_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        },
+        "additionalProperties": False,
+    }
     base_properties = {
         "actor": {"type": "string"},
         "tool": {"type": "string"},
         "metadata": {"type": "object"},
+        "budget": budget,
     }
     variants = []
     for action_type, field in (

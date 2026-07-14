@@ -182,6 +182,21 @@ The explicit outcomes are `clean`, `review`, and `block-next-step`; raw result
 content and matches never enter reports. See the
 [tool result scanner](docs/tool-result-scanner.md).
 
+For cumulative limits, add policy budgets and use a proposed-stage journal
+reservation before checking the cap:
+
+```bash
+policylatch check --action examples/actions/budgeted-shell.json \
+  --policy examples/policies/budgeted.yaml --output report.json
+policylatch journal-append --input report.json --journal audit.jsonl \
+  --stage proposed --enable-journal --output reservation.json
+policylatch budget-check --input report.json --journal audit.jsonl \
+  --event-id <reservation-event-id> --policy examples/policies/budgeted.yaml
+```
+
+Missing, corrupt, changing, unconfirmed, or unreserved state denies as unknown.
+See [policy budgets](docs/policy-budgets.md).
+
 Exit codes are automation-friendly: `0` allow, `1` warn, `2` deny, and `3` invalid input or policy.
 
 ## Policy example
