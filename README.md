@@ -320,6 +320,10 @@ MCP tools/call -> gateway parser -> tool/argument policy -+
 Treat policy files as code: review them, version them with the project, and start with conservative defaults for sensitive environments. Inputs may contain sensitive material in real workflows; do not publish raw reports without reviewing them.
 
 See [SECURITY.md](SECURITY.md) for the reporting policy and safe reproduction requirements.
+The [competitive landscape](docs/competitive-landscape.md) records product-level
+lessons and explicit adopt/adapt/reject decisions. Contributions influenced by
+adjacent projects must follow the
+[clean-room development policy](docs/clean-room-development.md).
 
 ## GitHub Action
 

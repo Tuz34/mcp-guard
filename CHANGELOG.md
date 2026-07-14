@@ -21,6 +21,9 @@ green cross-platform CI run and final review.
 
 ### Added
 
+- Competitive capability matrix and a clean-room development policy that
+  records product-level provenance without reusing third-party implementation,
+  rules, tests, fixtures, or prose.
 - Experimental `gateway-check` command for one MCP JSON-RPC `tools/call`
   request. It is strictly no-forward, starts no upstream process, and omits raw
   tool arguments from its decision output.
