@@ -98,7 +98,8 @@ invariants remain tested:
 4. `deny`, invalid, oversized, unclassified, and unsupported lifecycle requests
    never reach upstream.
 5. `warn` is closed unless an explicit, scoped approval result exists.
-6. No approval exists in this slice; every `warn` stays closed.
+6. Approval is bound to upstream/policy/tool/request fingerprints and bounded
+   capabilities, TTL, and use count; modifying the semantic request invalidates it.
 7. Gateway stdout contains MCP protocol messages only; diagnostics use stderr.
 8. Raw arguments, environment values, and server stderr are not written to normal
    reports or history.
@@ -124,16 +125,16 @@ deny or unknown result into forwarding.
 
 ## Approval boundary
 
-Approval UI is deliberately later than stdio deny enforcement. When introduced,
-the default behavior will remain closed:
+The optional terminal approval layer remains closed by default:
 
 - `allow`: forward once;
 - `warn`: wait for an explicit scoped approval or reject;
 - `deny`: never offer an override in the basic flow;
 - invalid/unsupported: protocol error and no forwarding.
 
-The UI may display a redacted summary, not raw secrets. Closing the UI, losing the
-connection, or timing out means reject.
+The terminal displays a redacted JSONL request, not raw secrets. Closing input,
+losing the console, or timing out means reject. Grants are in-memory only and
+cannot override `deny`.
 
 ## Go/no-go decision
 

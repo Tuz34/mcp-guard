@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from policylatch.approval import TerminalApprovalProvider
 from policylatch.policy import load_policy
 from policylatch.runtime_gateway import (
     RuntimeGatewayError,
@@ -59,7 +60,7 @@ def config():
     )
 
 
-def run_session(client_input, timeout=2):
+def run_session(client_input, timeout=2, approval_provider=None):
     output = io.BytesIO()
     summary = run_stdio_gateway(
         client_input,
@@ -68,6 +69,7 @@ def run_session(client_input, timeout=2):
         config(),
         timeout_seconds=timeout,
         enabled=True,
+        approval_provider=approval_provider,
     )
     payloads = [json.loads(row) for row in output.getvalue().splitlines()]
     return summary, payloads
@@ -105,6 +107,61 @@ def test_warn_and_deny_never_reach_upstream(name, arguments, decision):
     assert summary["forwarded"] == 2
     assert summary["blocked"] == 1
     assert marker not in json.dumps(payloads)
+
+
+def test_explicit_warn_approval_forwards_without_exposing_raw_arguments():
+    marker = "SYNTHETIC_PRIVATE_APPROVED_ARGUMENT"
+    approval_output = io.StringIO()
+    provider = TerminalApprovalProvider(
+        io.StringIO("approve\n"),
+        approval_output,
+        timeout_seconds=1,
+    )
+    summary, payloads = run_session(
+        initialize_messages(
+            call("approved-warn", "read_file", {"path": "safe", "unknown": marker})
+        ),
+        approval_provider=provider,
+    )
+
+    assert payloads[-1]["result"]["content"][0]["text"] == "synthetic-upstream-ok"
+    assert summary["approved"] == 1
+    assert summary["blocked"] == 0
+    assert marker not in approval_output.getvalue()
+
+
+def test_deny_never_offers_an_approval_override():
+    approval_output = io.StringIO()
+    provider = TerminalApprovalProvider(
+        io.StringIO("approve\n"), approval_output, timeout_seconds=1
+    )
+    summary, payloads = run_session(
+        initialize_messages(
+            call("deny-no-override", "run_command", {"command": "rm -rf synthetic"})
+        ),
+        approval_provider=provider,
+    )
+
+    assert payloads[-1]["error"]["data"]["decision"] == "deny"
+    assert summary["approved"] == 0
+    assert approval_output.getvalue() == ""
+
+
+def test_task_augmented_warning_is_not_approvable():
+    approval_output = io.StringIO()
+    provider = TerminalApprovalProvider(
+        io.StringIO("approve\n"), approval_output, timeout_seconds=1
+    )
+    request = call("task-no-override", "read_file", {"path": "safe"})
+    request["params"]["task"] = {"ttl": 1}
+    summary, payloads = run_session(
+        initialize_messages(request),
+        approval_provider=provider,
+    )
+
+    assert payloads[-1]["error"]["data"]["decision"] == "warn"
+    assert summary["approved"] == 0
+    assert approval_output.getvalue() == ""
 
 
 def test_protocol_error_before_initialize_is_local_and_closes_child():

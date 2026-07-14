@@ -16,6 +16,7 @@ from .adapters import (
     safe_policy_label,
     validate_adapter_config,
 )
+from .approval import TerminalApprovalProvider
 from .budgets import action_budget_facts, budget_check_document
 from .evaluator import evaluate_action
 from .gateway import MAX_GATEWAY_REQUEST_BYTES, evaluate_mcp_request
@@ -184,6 +185,8 @@ def build_parser() -> argparse.ArgumentParser:
     stdio_gateway.add_argument("--upstream-config", required=True)
     _add_policy_selector(stdio_gateway)
     stdio_gateway.add_argument("--timeout-seconds", type=float, default=10.0)
+    stdio_gateway.add_argument("--interactive-approval", action="store_true")
+    stdio_gateway.add_argument("--approval-timeout-seconds", type=float, default=30.0)
     stdio_gateway.add_argument(
         "--enable-forwarding",
         action="store_true",
@@ -534,14 +537,27 @@ def run(args: argparse.Namespace) -> int:
             args.upstream_config,
         )
         policy, _ = _selected_policy(args)
-        summary = run_stdio_gateway(
-            sys.stdin.buffer,
-            sys.stdout.buffer,
-            policy,
-            config,
-            timeout_seconds=args.timeout_seconds,
-            enabled=args.enable_forwarding,
+        approval_provider = (
+            TerminalApprovalProvider.from_console(
+                sys.stderr,
+                timeout_seconds=args.approval_timeout_seconds,
+            )
+            if args.interactive_approval
+            else None
         )
+        try:
+            summary = run_stdio_gateway(
+                sys.stdin.buffer,
+                sys.stdout.buffer,
+                policy,
+                config,
+                timeout_seconds=args.timeout_seconds,
+                enabled=args.enable_forwarding,
+                approval_provider=approval_provider,
+            )
+        finally:
+            if approval_provider is not None:
+                approval_provider.close()
         print(json.dumps(summary, sort_keys=True, separators=(",", ":")), file=sys.stderr)
         return 0
     if args.command == "policy-diff":

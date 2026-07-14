@@ -134,10 +134,13 @@ Use `default_decision: deny` with a small `allow_names` list for gateway policie
 The bundled `gateway-strict.yaml` is a synthetic starting point, not a universal
 production policy.
 
-The stdio command does not scan or classify upstream response content yet; that
-is a separate post-flight gate. It also does not support interactive approvals,
-HTTP/SSE, TLS interception, automatic client reconfiguration, background
-monitoring, task-augmented calls, or arbitrary MCP extension methods.
+With `--interactive-approval`, a `warn` may be approved once or by a bounded
+in-memory session grant. Missing console input, timeout, or ambiguity denies;
+`deny` is never overridable. See [scoped approvals](approvals.md). The stdio
+command does not scan or classify upstream response content yet; that is a
+separate post-flight gate. It also does not support HTTP/SSE, TLS interception,
+automatic client reconfiguration, background monitoring, task-augmented calls,
+or arbitrary MCP extension methods.
 
 Only calls routed through `gateway-stdio` can be observed or blocked. Direct MCP
 client-to-server configuration remains a complete bypass. The session summary is

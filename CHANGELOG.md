@@ -24,6 +24,8 @@ green cross-platform CI run and final review.
 - Opt-in `gateway-stdio` enforcement for one explicit argv-based MCP server,
   with strict lifecycle/correlation checks, bounded messages and pipe writes,
   allow-only forwarding, closed warn/deny behavior, and deterministic cleanup.
+- Explicit warn-only terminal approvals plus data-minimized JSON contracts and
+  in-memory grants bounded by exact semantic scope, TTL, and future-use count.
 - Deterministic before/after policy simulation over shared synthetic fixtures,
   with all decision transitions, configurable relaxation gates, redacted
   receipts/provenance, rule-change heuristics, and counterexample suggestions.

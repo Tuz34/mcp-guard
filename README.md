@@ -73,7 +73,8 @@ policylatch gateway-stdio \
 ```
 
 See the [gateway contract](docs/gateway.md) for the exact protocol and safety
-boundary.
+boundary. Optional terminal approvals are fail-closed, fingerprint-bound, and
+documented in [scoped approvals](docs/approvals.md); `deny` cannot be overridden.
 
 Evaluate a synthetic runtime hook and generate a review-first configuration
 snippet without changing Claude Code or Codex settings:

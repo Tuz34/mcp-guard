@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO
 
+from .approval import TerminalApprovalProvider, build_approval_request
 from .gateway import MAX_GATEWAY_REQUEST_BYTES, evaluate_mcp_request
 from .receipts import canonical_json, canonical_policy_hash
 from .validation import InputError
@@ -330,6 +331,7 @@ def run_stdio_gateway(
     *,
     timeout_seconds: float,
     enabled: bool,
+    approval_provider: TerminalApprovalProvider | None = None,
 ) -> dict[str, Any]:
     if not enabled:
         raise RuntimeGatewayError("Runtime forwarding requires enabled=True.")
@@ -362,6 +364,8 @@ def run_stdio_gateway(
         "policy_hash": canonical_policy_hash(policy),
         "forwarded": 0,
         "blocked": 0,
+        "approved": 0,
+        "grant_reuses": 0,
         "control_messages": 0,
         "protocol_errors": 0,
         "stderr_truncated": False,
@@ -393,7 +397,36 @@ def run_stdio_gateway(
                             "MCP tools/call requires a completed initialize lifecycle."
                         )
                     result = evaluate_mcp_request(message, policy)
-                    if result.evaluation.decision != "allow":
+                    approved = False
+                    if result.evaluation.decision == "warn" and approval_provider is not None:
+                        try:
+                            approval = build_approval_request(
+                                message,
+                                result,
+                                upstream_fingerprint=summary["upstream_fingerprint"],
+                                policy_hash=summary["policy_hash"],
+                                timeout_seconds=approval_provider.timeout_seconds,
+                            )
+                        except InputError as exc:
+                            if any(
+                                reason.rule == "gateway.tasks.unsupported"
+                                for reason in result.evaluation.reasons
+                            ):
+                                approval = None
+                            else:
+                                raise RuntimeGatewayError(
+                                    "Approval request could not be safely data-minimized."
+                                ) from exc
+                        if approval is None:
+                            outcome = None
+                        else:
+                            outcome = approval_provider.authorize(approval)
+                        approved = outcome.approved if outcome is not None else False
+                        if approved and outcome is not None:
+                            summary["approved"] += 1
+                            if outcome.source == "session-grant":
+                                summary["grant_reuses"] += 1
+                    if result.evaluation.decision != "allow" and not approved:
                         summary["blocked"] += 1
                         _write_message(
                             client_output,
