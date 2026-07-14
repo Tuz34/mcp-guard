@@ -12,6 +12,8 @@ green cross-platform CI run and final review.
 
 ### Added
 
+- Reusable composite GitHub Action for `check` and `scan`, with explicit decision,
+  exit-code, report-path, and fail-threshold outputs.
 - Self-contained, responsive HTML reports with no scripts or external assets.
 - Experimental, summary-only Windows audit record contract with synthetic
   fixtures and strict proposed/observed/verified trust states. This foundation

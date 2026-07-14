@@ -255,6 +255,31 @@ Treat policy files as code: review them, version them with the project, and star
 
 See [SECURITY.md](SECURITY.md) for the reporting policy and safe reproduction requirements.
 
+## GitHub Action
+
+Use the repository as a composite action to evaluate a checked-in policy and a
+JSON action or MCP manifest. It installs `mcp-guard` from the selected action
+revision and does not execute the proposed tool call.
+
+```yaml
+- name: Guard proposed agent action
+  id: guard
+  uses: Tuz34/mcp-guard@<reviewed-commit-or-release>
+  with:
+    command: check
+    input-file: examples/actions/safe-file-read.json
+    policy-file: examples/policies/balanced.yaml
+    output-file: artifacts/mcp-guard.json
+    fail-on: deny
+
+- name: Show decision
+  run: echo "Decision: ${{ steps.guard.outputs.decision }}"
+```
+
+`command` accepts `check` or `scan`. `fail-on` accepts `never`, `warn`, or
+`deny`; malformed input/configuration always fails with exit code `3`. Pin a
+reviewed commit until a release tag is available.
+
 ## Development
 
 ```bash

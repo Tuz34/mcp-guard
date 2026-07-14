@@ -11,6 +11,7 @@
 !LICENSE
 !README.md
 !SECURITY.md
+!action.yml
 !pyproject.toml
 
 # Public source, reference docs, synthetic examples, and tests.

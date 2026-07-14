@@ -5,6 +5,26 @@ on:
 permissions:
   contents: read
 jobs:
+  action-smoke:
+    name: reusable action smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Evaluate a synthetic safe action
+        id: guard
+        uses: ./
+        with:
+          command: check
+          input-file: examples/actions/safe-file-read.json
+          policy-file: examples/policies/balanced.yaml
+          output-file: artifacts/action-smoke.json
+          fail-on: deny
+      - name: Verify action outputs
+        shell: bash
+        run: |
+          test "${{ steps.guard.outputs.exit-code }}" = "0"
+          test "${{ steps.guard.outputs.decision }}" = "allow"
+          test -f "${{ steps.guard.outputs.report-path }}"
   test:
     name: test (${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
