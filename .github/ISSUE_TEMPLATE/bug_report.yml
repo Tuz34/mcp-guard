@@ -1,5 +1,5 @@
 name: Bug report
-description: Report incorrect or unexpected mcp-guard behavior using synthetic data.
+description: Report incorrect or unexpected PolicyLatch behavior using synthetic data.
 title: "[Bug] "
 labels: ["bug"]
 body:
@@ -9,7 +9,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: mcp-guard version
+      label: PolicyLatch version
       placeholder: 0.1.0
     validations:
       required: true
@@ -32,4 +32,3 @@ body:
       label: Actual behavior
     validations:
       required: true
-

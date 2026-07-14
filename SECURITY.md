@@ -2,7 +2,7 @@
 
 ## Scope
 
-`mcp-guard` currently provides a static local policy engine plus an experimental
+`PolicyLatch` currently provides a static local policy engine plus an experimental
 no-forward MCP `tools/call` gateway check. It reads YAML and JSON files and writes
 decisions/reports. It does not execute proposed actions, invoke MCP tools, connect
 to MCP servers, forward requests, or provide a sandbox. Live transport

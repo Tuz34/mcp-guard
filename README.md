@@ -1,14 +1,12 @@
-# mcp-guard
+# PolicyLatch
 
 **A local-first permission gateway for MCP tool calls and AI agents.**
 
-`mcp-guard` is evolving from a policy-checking CLI into a local gateway that can
+`PolicyLatch` is evolving from a policy-checking CLI into a local gateway that can
 make an explained permission decision before an MCP tool call reaches its server.
 The current codebase provides the deterministic policy engine, manifest scanner,
 reports, and an experimental **no-forward** check for one MCP JSON-RPC
 `tools/call` request.
-
-![mcp-guard HTML permission report showing a denied network action](docs/assets/mcp-guard-permission-report.png)
 
 > [!IMPORTANT]
 > The current gateway check never forwards a request, starts an MCP server, or
@@ -16,7 +14,7 @@ reports, and an experimental **no-forward** check for one MCP JSON-RPC
 
 ## Why?
 
-AI agents can request shell, filesystem, network, and database capabilities. Reviewing each request by eye does not scale, while full runtime isolation is often too heavy for a development workflow. `mcp-guard` provides a deterministic local permission decision:
+AI agents can request shell, filesystem, network, and database capabilities. Reviewing each request by eye does not scale, while full runtime isolation is often too heavy for a development workflow. `PolicyLatch` provides a deterministic local permission decision:
 
 ```text
 MCP tools/call / proposed action / manifest -> local YAML policy -> ALLOW | WARN | DENY
@@ -35,12 +33,19 @@ python -m venv .venv
 python -m pip install -e .
 ```
 
-The installed `mcp-guard` command and `python -m mcp_guard` are equivalent.
+The primary entry points are `policylatch` and `python -m policylatch`. The former
+`mcp-guard` command and `python -m mcp_guard` remain compatibility aliases for one
+transition release.
+
+The Python distribution and primary import package are now `policylatch`. See the
+[name migration guide](docs/name-migration.md) for CLI, import, environment, Action,
+and rollback details. During migration review the GitHub repository still uses its
+former `Tuz34/mcp-guard` slug; the repository rename is deliberately the final step.
 
 Evaluate a synthetic MCP tool call without forwarding it anywhere:
 
 ```bash
-mcp-guard gateway-check \
+policylatch gateway-check \
   --request examples/gateway/denied-shell-call.json \
   --policy examples/policies/gateway-strict.yaml
 ```
@@ -51,7 +56,7 @@ The result contains `"mode": "dry-run"`, `"forwarded": false`, and an explained
 Replay a bounded synthetic JSONL trace through the same no-forward boundary:
 
 ```bash
-mcp-guard gateway-replay \
+policylatch gateway-replay \
   --input examples/gateway/synthetic-trace.jsonl \
   --policy examples/policies/gateway-strict.yaml \
   --format markdown
@@ -60,7 +65,7 @@ mcp-guard gateway-replay \
 Evaluate a proposed agent action:
 
 ```bash
-mcp-guard check \
+policylatch check \
   --action examples/actions/risky-shell-command.json \
   --policy examples/policies/balanced.yaml \
   --format markdown
@@ -77,7 +82,7 @@ DENY shell.deny_patterns matched Remove-Item -Recurse
 Scan an MCP tool manifest and save machine-readable output:
 
 ```bash
-mcp-guard scan \
+policylatch scan \
   --mcp-config examples/mcp/risky-server.json \
   --policy examples/policies/balanced.yaml \
   --output scan-result.json
@@ -86,8 +91,8 @@ mcp-guard scan \
 Turn a saved JSON result into a review artifact:
 
 ```bash
-mcp-guard report --input scan-result.json --format markdown --output report.md
-mcp-guard report --input scan-result.json --format html --output report.html
+policylatch report --input scan-result.json --format markdown --output report.md
+policylatch report --input scan-result.json --format html --output report.html
 ```
 
 Exit codes are automation-friendly: `0` allow, `1` warn, `2` deny, and `3` invalid input or policy.
@@ -182,8 +187,8 @@ rewriting the stored audit file. See the [Windows audit contract](docs/windows-a
 for the exact trust and privacy boundaries.
 
 ```bash
-mcp-guard audit-append --input record.json --history audit.jsonl --enable-history
-mcp-guard audit-report --input audit.jsonl --format html --state verified --output audit.html
+policylatch audit-append --input record.json --history audit.jsonl --enable-history
+policylatch audit-report --input audit.jsonl --format html --state verified --output audit.html
 ```
 
 History HTML is compact and self-contained. Filters are applied explicitly during
@@ -192,11 +197,11 @@ generation, so the report keeps the project's no-JavaScript and no-network model
 The complete opt-in Windows flow is also available from the CLI:
 
 ```bash
-mcp-guard windows-snapshot --provider service --target SyntheticDemoService \
+policylatch windows-snapshot --provider service --target SyntheticDemoService \
   --enable-windows-audit --output before.json
-mcp-guard windows-compare --before before.json --after after.json \
+policylatch windows-compare --before before.json --after after.json \
   --output comparison.json
-mcp-guard audit-append --input comparison.json --history audit.jsonl --enable-history
+policylatch audit-append --input comparison.json --history audit.jsonl --enable-history
 ```
 
 Snapshot files are always `observed`. A `verified` record must contain a
@@ -265,7 +270,7 @@ import subprocess
 
 completed = subprocess.run(
     [
-        "mcp-guard",
+        "policylatch",
         "check",
         "--action", "proposed-action.json",
         "--policy", "guard-policy.yaml",
@@ -280,7 +285,7 @@ if completed.returncode != 0:
     raise RuntimeError(f"Agent action needs review: {result['decision']}")
 ```
 
-This example demonstrates decision consumption only. `mcp-guard` does not run the proposed action. In production, treat malformed output and exit code `3` as a closed gate.
+This example demonstrates decision consumption only. `PolicyLatch` does not run the proposed action. In production, treat malformed output and exit code `3` as a closed gate.
 
 ## How it is built
 
@@ -301,7 +306,7 @@ MCP tools/call -> gateway parser -> tool/argument policy -+
 
 ## Security model and limitations
 
-`mcp-guard` evaluates declarations. It does **not**:
+`PolicyLatch` evaluates declarations. It does **not**:
 
 - Execute commands, agent actions, or MCP tools.
 - Proxy or intercept a live MCP connection.
@@ -316,7 +321,7 @@ See [SECURITY.md](SECURITY.md) for the reporting policy and safe reproduction re
 ## GitHub Action
 
 Use the repository as a composite action to evaluate a checked-in policy and a
-JSON action or MCP manifest. It installs `mcp-guard` from the selected action
+JSON action or MCP manifest. It installs `PolicyLatch` from the selected action
 revision and does not execute the proposed tool call.
 
 ```yaml
@@ -327,7 +332,7 @@ revision and does not execute the proposed tool call.
     command: check
     input-file: examples/actions/safe-file-read.json
     policy-file: examples/policies/balanced.yaml
-    output-file: artifacts/mcp-guard.json
+    output-file: artifacts/policylatch.json
     fail-on: deny
 
 - name: Show decision
@@ -358,11 +363,11 @@ steps:
       input-file: examples/mcp/risky-server.json
       policy-file: examples/policies/balanced.yaml
       format: sarif
-      output-file: artifacts/mcp-guard.sarif
+      output-file: artifacts/policylatch.sarif
       fail-on: never
   - uses: github/codeql-action/upload-sarif@v3
     with:
-      sarif_file: artifacts/mcp-guard.sarif
+      sarif_file: artifacts/policylatch.sarif
 ```
 
 SARIF messages intentionally omit the raw `matched` value, and absolute input
@@ -396,8 +401,8 @@ types, fixtures, and false-positive tests are welcome.
 - **Later:** Local approval workflow and audit timeline, thin Claude Code/Codex
   adapters, workspace baselines, and an optional policy adapter such as OPA/Rego.
 
-The release remains blocked on the separate naming decision. No release/tag or
-package publication is implied by the current development state.
+The PolicyLatch name is approved and the compatibility migration is under review.
+No release/tag or package publication is implied by the current development state.
 
 ## License
 

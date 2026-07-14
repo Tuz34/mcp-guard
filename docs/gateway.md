@@ -18,7 +18,7 @@ strict tools/call parser -> local YAML policy -> ALLOW | WARN | DENY
 Example:
 
 ```bash
-mcp-guard gateway-check \
+policylatch gateway-check \
   --request examples/gateway/denied-shell-call.json \
   --policy examples/policies/gateway-strict.yaml
 ```
@@ -27,7 +27,7 @@ For multiple synthetic requests, `gateway-replay` reads one JSON-RPC object per
 JSONL line and returns the most restrictive aggregate decision:
 
 ```bash
-mcp-guard gateway-replay \
+policylatch gateway-replay \
   --input examples/gateway/synthetic-trace.jsonl \
   --policy examples/policies/gateway-strict.yaml
 ```

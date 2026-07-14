@@ -10,6 +10,15 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Planned for `0.2.0`. No tag or release has been created; publication requires a
 green cross-platform CI run and final review.
 
+### Changed
+
+- Renamed the project, Python distribution, primary package, and CLI to
+  **PolicyLatch** / `policylatch`.
+- Kept the former `mcp-guard` CLI, `python -m mcp_guard`, `mcp_guard.*` imports,
+  and `MCP_GUARD_WINDOWS_INTEGRATION` environment variable as transition aliases.
+- Made `POLICYLATCH_WINDOWS_INTEGRATION` authoritative when both environment
+  variable spellings are present.
+
 ### Added
 
 - Experimental `gateway-check` command for one MCP JSON-RPC `tools/call`

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping make agent tool use easier to review.
+Thanks for helping PolicyLatch make agent tool use easier to review.
 
 ## Design principles
 
@@ -27,4 +27,3 @@ include tests for allow, warn, deny, and invalid input where applicable. Update 
 policy reference when adding or changing a rule key.
 
 By contributing, you agree that your contribution is licensed under the MIT License.
-

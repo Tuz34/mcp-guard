@@ -1,6 +1,6 @@
 # Policy reference
 
-`mcp-guard` policies are local YAML files. Version 1 intentionally has a small,
+`PolicyLatch` policies are local YAML files. Version 1 intentionally has a small,
 explicit vocabulary. Unknown sections and rule names are errors, so a typo cannot
 silently weaken a policy.
 
@@ -20,7 +20,7 @@ silently weaken a policy.
 - `warn_patterns`: shell text patterns that produce `warn`.
 
 Patterns are case-insensitive. `*` and `?` use glob matching; patterns without
-wildcards use substring matching. `mcp-guard` only compares text. It does not parse
+wildcards use substring matching. `PolicyLatch` only compares text. It does not parse
 or execute a shell command.
 
 ### `files`

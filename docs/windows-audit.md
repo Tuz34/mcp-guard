@@ -1,6 +1,6 @@
 # Windows audit contract (experimental)
 
-The Windows audit foundation defines how `mcp-guard` can describe a requested or
+The Windows audit foundation defines how `PolicyLatch` can describe a requested or
 detected Windows setting change without storing the setting value. It is an
 explicit, opt-in capability under development.
 
@@ -56,14 +56,14 @@ silently leak data through an undocumented property.
 The pure parser is available to integrations:
 
 ```python
-from mcp_guard.windows_audit import parse_windows_setting_action
+from policylatch.windows_audit import parse_windows_setting_action
 
 record = parse_windows_setting_action(action)
 document = record.to_dict()
 ```
 
 Parsing does not inspect the host and does not evaluate policy. The existing
-`mcp-guard check` command continues to support its documented shell, file, and
+`policylatch check` continues to support its documented shell, file, and
 network action types only.
 
 ## Opt-in provider boundary
@@ -87,8 +87,8 @@ calls a Registry value query or write API. Missing keys, access-denied errors, a
 other OS errors remain distinct outcomes.
 
 ```python
-from mcp_guard.windows_providers import collect_windows_snapshot
-from mcp_guard.windows_registry import RegistryKeyPresenceProvider
+from policylatch.windows_providers import collect_windows_snapshot
+from policylatch.windows_registry import RegistryKeyPresenceProvider
 
 snapshot = collect_windows_snapshot(
     RegistryKeyPresenceProvider(),
@@ -146,7 +146,7 @@ Collecting a Windows snapshot requires the opt-in flag. Without it, platform and
 provider code are not called:
 
 ```bash
-mcp-guard windows-snapshot \
+policylatch windows-snapshot \
   --provider service \
   --target SyntheticDemoService \
   --enable-windows-audit \
@@ -161,7 +161,7 @@ accepts one rule ID; the long-path provider accepts only `long_paths_enabled`.
 Two saved observations can be compared without another Windows read:
 
 ```bash
-mcp-guard windows-compare \
+policylatch windows-compare \
   --before before.json \
   --after after.json \
   --output comparison.json
@@ -178,7 +178,7 @@ Summary-only records can be appended to a local JSONL file after a separate
 explicit opt-in:
 
 ```python
-from mcp_guard.windows_history import append_audit_record, load_audit_history
+from policylatch.windows_history import append_audit_record, load_audit_history
 
 append_audit_record("audit.jsonl", record, enabled=True)
 records = load_audit_history("audit.jsonl")
@@ -191,7 +191,7 @@ file.
 
 The comparison marker is a local workflow invariant, not a cryptographic
 signature. A user who can edit the JSONL file can also alter its contents;
-`mcp-guard` does not claim tamper-evident storage.
+`PolicyLatch` does not claim tamper-evident storage.
 
 `filter_audit_history` creates a static view by category, verification state, and
 inclusive ISO-8601 time range. Filtering does not rewrite the stored history. See
@@ -204,7 +204,7 @@ Append a validated action or normalized audit record. The explicit history flag
 is required; without it, no file is created or changed:
 
 ```bash
-mcp-guard audit-append \
+policylatch audit-append \
   --input examples/windows-audit/verified-registry-change.json \
   --history output/windows-audit.jsonl \
   --enable-history
@@ -213,7 +213,7 @@ mcp-guard audit-append \
 Generate a filtered JSON or compact HTML view:
 
 ```bash
-mcp-guard audit-report \
+policylatch audit-report \
   --input output/windows-audit.jsonl \
   --format html \
   --category registry \
@@ -235,7 +235,9 @@ All examples in [`examples/windows-audit`](../examples/windows-audit) are
 synthetic and contain no user or machine data.
 
 The default test suite uses synthetic backends. A separate Windows CI step sets
-`MCP_GUARD_WINDOWS_INTEGRATION=1` and performs read-only checks against the fixed
+`POLICYLATCH_WINDOWS_INTEGRATION=1` and performs read-only checks against the fixed
 `EventLog` service, `HKCU\Control Panel\Desktop`, the public firewall profile,
 and the long-path policy. This validates the ctypes structure and 64-bit HKLM
 Registry view on a disposable GitHub-hosted runner without changing system state.
+The legacy `MCP_GUARD_WINDOWS_INTEGRATION=1` spelling remains supported for one
+transition release; when both names are present, the `POLICYLATCH_` value wins.
