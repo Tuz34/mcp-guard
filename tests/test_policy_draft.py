@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -67,6 +68,22 @@ def test_draft_cannot_be_loaded_as_enforcement_policy(tmp_path):
     )
     with pytest.raises(PolicyError, match="Unknown top-level"):
         load_policy(draft)
+
+
+def test_extracted_generated_policy_stays_draft_until_explicit_review(tmp_path):
+    document = policy_draft_document(read_json(SAFE_MANIFEST), "safe.json")
+    assert document["generated_policy"]["draft"] is True
+
+    extracted = tmp_path / "extracted.yaml"
+    extracted.write_text(yaml.safe_dump(document["generated_policy"]), encoding="utf-8")
+    with pytest.raises(PolicyError, match="Unknown top-level.*draft"):
+        load_policy(extracted)
+
+    reviewed = deepcopy(document["generated_policy"])
+    reviewed.pop("draft")
+    reviewed_path = tmp_path / "reviewed.yaml"
+    reviewed_path.write_text(yaml.safe_dump(reviewed), encoding="utf-8")
+    assert load_policy(reviewed_path)["version"] == 1
 
 
 def test_policy_init_refuses_overwrite_without_force(tmp_path, capsys):

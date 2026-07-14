@@ -3,6 +3,7 @@ draft_schema_version: 1
 source: risky-server.json
 notice: 'Review required: generated drafts are not valid enforcement policies.'
 generated_policy:
+  draft: true
   version: 1
   default_decision: warn
   rules:

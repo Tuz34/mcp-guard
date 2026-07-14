@@ -10,9 +10,15 @@ policylatch policy-init \
   --output policy.draft.yaml
 ```
 
-Generated YAML has a top-level `draft: true` wrapper. It is deliberately not a
-valid enforcement policy: `check`, `scan`, and gateway commands reject it until
-a person reviews the recommendations and manually creates a normal policy.
+Generated YAML has `draft: true` on both the outer review document and its
+embedded `generated_policy` fragment. It is deliberately not a valid
+enforcement policy: `check`, `scan`, and gateway commands reject the full file
+and also reject a separately extracted fragment.
+
+Promotion is intentionally manual. A person must review the recommendations,
+adjust the rules and default decision, then explicitly remove the embedded
+`draft: true` marker while creating the normal policy. PolicyLatch has no
+automatic draft-to-enforcement conversion command.
 
 The generator:
 

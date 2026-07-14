@@ -95,6 +95,8 @@ green cross-platform CI run and final review.
 
 ### Fixed
 
+- Marked embedded generated-policy fragments as drafts too, so extracting the
+  inner object cannot bypass the explicit human-review boundary.
 - Made duplicate-excluding policy budgets use a value-aware, one-way action
   fingerprint instead of the journal's privacy-minimized request shape; distinct
   actions now count separately and legacy ambiguous state fails closed.

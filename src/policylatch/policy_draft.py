@@ -118,6 +118,7 @@ def policy_draft_document(manifest: dict[str, Any], source: str) -> dict[str, An
         "source": Path(source).name,
         "notice": "Review required: generated drafts are not valid enforcement policies.",
         "generated_policy": {
+            "draft": True,
             "version": 1,
             "default_decision": "warn",
             "rules": {
