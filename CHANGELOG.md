@@ -12,6 +12,14 @@ green cross-platform CI run and final review.
 
 ### Added
 
+- Experimental `gateway-check` command for one MCP JSON-RPC `tools/call`
+  request. It is strictly no-forward, starts no upstream process, and omits raw
+  tool arguments from its decision output.
+- MCP tool-name `allow_names` and `deny_names` policy rules with complete,
+  case-insensitive glob matching.
+- Default-deny synthetic gateway policy, safe/denied request fixtures, and an
+  explicit gateway trust/bypass contract.
+- Composite GitHub Action support for synthetic no-forward `gateway-check` runs.
 - Reusable composite GitHub Action for `check` and `scan`, with explicit decision,
   exit-code, report-path, and fail-threshold outputs.
 - Deterministic SARIF 2.1.0 reports for GitHub Code Scanning, with deduplicated

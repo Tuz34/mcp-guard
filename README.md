@@ -1,20 +1,25 @@
 # mcp-guard
 
-**A local-first permission firewall for MCP tools and AI agents.**
+**A local-first permission gateway for MCP tool calls and AI agents.**
 
-Stop risky MCP tools before your agent runs them. `mcp-guard` is a small Python CLI that checks proposed agent actions and MCP tool manifests against a readable YAML policy. Think of it as a pre-flight safety check for AI agent tool calls.
+`mcp-guard` is evolving from a policy-checking CLI into a local gateway that can
+make an explained permission decision before an MCP tool call reaches its server.
+The current codebase provides the deterministic policy engine, manifest scanner,
+reports, and an experimental **no-forward** check for one MCP JSON-RPC
+`tools/call` request.
 
 ![mcp-guard HTML permission report showing a denied network action](docs/assets/mcp-guard-permission-report.png)
 
 > [!IMPORTANT]
-> v0 never executes an action or calls an MCP tool. It is a policy evaluator, not a sandbox and not a replacement for human approval.
+> The current gateway check never forwards a request, starts an MCP server, or
+> executes a tool. Live interception is planned work, not a current capability.
 
 ## Why?
 
-AI agents can request shell, filesystem, network, and database capabilities. Reviewing each request by eye does not scale, while full runtime isolation is often too heavy for a development workflow. `mcp-guard` provides a deterministic local checkpoint:
+AI agents can request shell, filesystem, network, and database capabilities. Reviewing each request by eye does not scale, while full runtime isolation is often too heavy for a development workflow. `mcp-guard` provides a deterministic local permission decision:
 
 ```text
-proposed action / MCP manifest -> local YAML policy -> ALLOW | WARN | DENY
+MCP tools/call / proposed action / manifest -> local YAML policy -> ALLOW | WARN | DENY
 ```
 
 Policies and inputs stay on your machine. The CLI has no telemetry and makes no network calls. Results explain exactly which rule matched and can be emitted as versioned JSON for automation or Markdown for review.
@@ -31,6 +36,17 @@ python -m pip install -e .
 ```
 
 The installed `mcp-guard` command and `python -m mcp_guard` are equivalent.
+
+Evaluate a synthetic MCP tool call without forwarding it anywhere:
+
+```bash
+mcp-guard gateway-check \
+  --request examples/gateway/denied-shell-call.json \
+  --policy examples/policies/gateway-strict.yaml
+```
+
+The result contains `"mode": "dry-run"`, `"forwarded": false`, and an explained
+`deny` decision. Raw tool arguments are not copied into the result.
 
 Evaluate a proposed agent action:
 
@@ -96,6 +112,12 @@ rules:
       - "*.webhook.site"
 
   mcp_tools:
+    allow_names:
+      - "read_file"
+      - "fetch_url"
+    deny_names:
+      - "admin_*"
+      - "upload_*"
     deny_if_description_contains:
       - "ignore previous instructions"
       - "send file contents"
@@ -107,7 +129,10 @@ rules:
       - "path"
 ```
 
-Three complete policy profiles live in [`examples/policies`](examples/policies): `balanced`, `strict`, and `ci`. See the [policy reference](docs/policy-reference.md) for exact matching and precedence rules. Unknown policy fields are rejected instead of silently ignored.
+Four policy profiles live in [`examples/policies`](examples/policies): `balanced`,
+`strict`, `ci`, and the default-deny `gateway-strict`. See the
+[policy reference](docs/policy-reference.md) for exact matching and precedence
+rules. Unknown policy fields are rejected instead of silently ignored.
 
 ## Input formats
 
@@ -120,6 +145,11 @@ An action is a JSON object. Fields used by v0 depend on `action_type`:
 | `network` | `url` or `domain` | A proposed destination |
 
 An MCP manifest uses a top-level `tools` array (or `server.tools`). Each tool may provide `name`, `description`, and `inputSchema`. Common client configs with an `mcpServers` mapping are also supported; their declared `command` and `args` are checked as text. The scanner does not connect to an MCP server.
+
+The experimental gateway input is one JSON-RPC 2.0 `tools/call` request. It
+checks the complete tool name and recognized top-level `command`, `path`, `url`,
+and `domain` arguments. See the [gateway contract](docs/gateway.md) for the exact
+trust boundary and known bypasses.
 
 All files under [`examples`](examples) are deliberately synthetic. They contain no real credentials, endpoints, or user data.
 
@@ -201,6 +231,20 @@ Manifest scans also contain an aggregate `decision`, `risk_level`, per-decision 
 
 HTML reports are self-contained visual artifacts with responsive dark/light themes and print styles. They include no JavaScript, external assets, telemetry, or network requests, so a report can be opened directly from disk or attached to a CI artifact.
 
+## Gateway status
+
+The product direction is a local MCP permission gateway:
+
+```text
+MCP client -> local gateway -> policy decision -> approval or deny -> MCP server
+```
+
+Only the policy-facing pieces exist today. `gateway-check` parses and evaluates
+a saved request but always reports `forwarded: false`. A later, separately
+reviewed transport layer will wrap an explicitly configured MCP server and
+enforce the same decision before forwarding. Calls that do not pass through that
+transport cannot be observed or blocked.
+
 ## Agent and CI integration
 
 The CLI is the public integration boundary. An agent orchestrator can write its proposed action as JSON, run the guard, parse stdout, and only continue when its own approval logic accepts both the decision and process exit code.
@@ -236,6 +280,8 @@ The implementation deliberately stays small:
 JSON input -> strict validation -> deterministic matchers -> explained decision -> JSON/Markdown
 YAML policy ------^                                      |
                                                          +-> no execution
+
+MCP tools/call -> gateway parser -> tool/argument policy -+
 ```
 
 - Python standard library for the CLI, models, matching, and reports.
@@ -278,9 +324,11 @@ revision and does not execute the proposed tool call.
   run: echo "Decision: ${{ steps.guard.outputs.decision }}"
 ```
 
-`command` accepts `check` or `scan`. `fail-on` accepts `never`, `warn`, or
-`deny`; malformed input/configuration always fails with exit code `3`. Pin a
-reviewed commit until a release tag is available.
+`command` accepts `check`, `scan`, or the no-forward `gateway-check`. For the
+gateway command, `input-file` must point to one saved JSON-RPC `tools/call`
+request. `fail-on` accepts `never`, `warn`, or `deny`; malformed
+input/configuration always fails with exit code `3`. Pin a reviewed commit until
+a release tag is available.
 
 For GitHub Code Scanning, generate SARIF without hiding the subsequent upload
 step behind a policy decision, then upload the artifact with GitHub's CodeQL
@@ -329,13 +377,17 @@ types, fixtures, and false-positive tests are welcome.
 
 - **v0.1 (current MVP):** Policy checks, MCP/tool manifest scanning, explained
   JSON/Markdown/HTML reports, synthetic examples, and cross-platform tests.
-- **v0.2.0 (next, not released):** Opt-in Windows audit snapshots/history,
-  SARIF output, and a reusable GitHub Action. The release remains blocked on a
-  green cross-platform CI run and final review.
-- **v0.3:** Tool registry scanning and workspace risk baselines, still without
-  executing agent actions.
-- **v1:** Optional runtime proxy/dry-run interception, approval workflows, and a
-  policy adapter such as OPA/Rego.
+- **Current development (unreleased):** No-forward `tools/call` gateway checks,
+  explicit tool allow/deny rules, opt-in Windows audit snapshots/history, SARIF,
+  and the reusable GitHub Action.
+- **Next gateway milestone:** A narrowly scoped stdio transport wrapper with an
+  explicit upstream command, fail-closed limits, synthetic replay tests, and no
+  hidden configuration changes.
+- **Later:** Local approval workflow and audit timeline, thin Claude Code/Codex
+  adapters, workspace baselines, and an optional policy adapter such as OPA/Rego.
+
+The release remains blocked on the separate naming decision. No release/tag or
+package publication is implied by the current development state.
 
 ## License
 

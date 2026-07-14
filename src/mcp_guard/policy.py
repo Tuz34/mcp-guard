@@ -13,6 +13,8 @@ RULE_KEYS = {
     "files": {"deny_paths", "warn_paths"},
     "network": {"allow_domains", "deny_domains"},
     "mcp_tools": {
+        "allow_names",
+        "deny_names",
         "deny_if_description_contains",
         "warn_if_name_contains",
         "warn_if_schema_contains",

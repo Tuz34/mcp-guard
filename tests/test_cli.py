@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from mcp_guard.cli import main
+from mcp_guard.gateway import MAX_GATEWAY_REQUEST_BYTES
 from mcp_guard.windows_audit import StateSummary
 from mcp_guard.windows_providers import ObservedWindowsSnapshot
 
@@ -55,6 +56,88 @@ def test_scan_writes_aggregate_summary(tmp_path):
     assert code == 2
     assert payload["decision"] == "deny"
     assert payload["summary"] == {"total": 2, "allow": 0, "warn": 1, "deny": 1}
+
+
+def test_gateway_check_writes_no_forward_decision(tmp_path):
+    output = tmp_path / "gateway-result.json"
+    code = main(
+        [
+            "gateway-check",
+            "--request",
+            str(ROOT / "examples/gateway/denied-shell-call.json"),
+            "--policy",
+            str(ROOT / "examples/policies/gateway-strict.yaml"),
+            "--output",
+            str(output),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert code == 2
+    assert payload["kind"] == "mcp_gateway_decision"
+    assert payload["decision"] == "deny"
+    assert payload["gateway"] == {"mode": "dry-run", "forwarded": False}
+    assert "arguments" not in payload["request"]
+    assert payload["source"] == "denied-shell-call.json"
+    assert payload["policy"] == "gateway-strict.yaml"
+
+
+def test_gateway_check_invalid_protocol_fails_closed(tmp_path, capsys):
+    source = tmp_path / "unsupported.json"
+    source.write_text(
+        json.dumps({"jsonrpc": "2.0", "id": 1, "method": "resources/read"}),
+        encoding="utf-8",
+    )
+
+    code = main(
+        [
+            "gateway-check",
+            "--request",
+            str(source),
+            "--policy",
+            str(ROOT / "examples/policies/gateway-strict.yaml"),
+        ]
+    )
+
+    assert code == 3
+    assert "only supports MCP method 'tools/call'" in capsys.readouterr().err
+
+
+def test_gateway_check_rejects_oversized_request_before_json_parse(tmp_path, capsys):
+    source = tmp_path / "oversized.json"
+    source.write_bytes(b"{" + b"x" * MAX_GATEWAY_REQUEST_BYTES + b"}")
+
+    code = main(
+        [
+            "gateway-check",
+            "--request",
+            str(source),
+            "--policy",
+            str(ROOT / "examples/policies/gateway-strict.yaml"),
+        ]
+    )
+
+    assert code == 3
+    assert "exceeds the" in capsys.readouterr().err
+
+
+def test_gateway_check_can_render_markdown(capsys):
+    code = main(
+        [
+            "gateway-check",
+            "--request",
+            str(ROOT / "examples/gateway/denied-shell-call.json"),
+            "--policy",
+            str(ROOT / "examples/policies/gateway-strict.yaml"),
+            "--format",
+            "markdown",
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert code == 2
+    assert "Overall decision: **DENY**" in output
+    assert "synthetic-demo" not in output
 
 
 def test_invalid_action_returns_input_error(tmp_path, capsys):

@@ -46,6 +46,22 @@ def test_warns_on_sensitive_input_schema():
     assert result.reasons[0].rule == "mcp_tools.warn_if_schema_contains"
 
 
+def test_tool_allow_list_is_an_explicit_baseline_for_scans():
+    policy = load_policy(ROOT / "examples/policies/gateway-strict.yaml")
+    manifest = {
+        "tools": [
+            {"name": "read_file", "description": "Read docs", "inputSchema": {}},
+            {"name": "unknown_tool", "description": "Unknown", "inputSchema": {}},
+        ]
+    }
+
+    results = scan_manifest(manifest, policy)
+
+    assert results[0].decision == "allow"
+    assert results[1].decision == "deny"
+    assert results[1].reasons[0].rule == "mcp_tools.allow_names"
+
+
 def test_rejects_unrecognized_manifest_shape():
     policy = load_policy(ROOT / "examples/policies/balanced.yaml")
     with pytest.raises(InputError, match="Expected tools"):

@@ -2,9 +2,11 @@
 
 ## Scope
 
-`mcp-guard` v0 is a static, local policy evaluator. It reads YAML and JSON files and
-writes reports. It does not execute proposed actions, invoke MCP tools, connect to MCP
-servers, or provide a sandbox.
+`mcp-guard` currently provides a static local policy engine plus an experimental
+no-forward MCP `tools/call` gateway check. It reads YAML and JSON files and writes
+decisions/reports. It does not execute proposed actions, invoke MCP tools, connect
+to MCP servers, forward requests, or provide a sandbox. Live transport
+interception is planned work and is not a current security boundary.
 
 The experimental Windows audit library API does not change the default CLI behavior.
 Windows reads are off by default. Providers can check only explicitly selected
@@ -20,6 +22,8 @@ The following are security-relevant:
 - A malformed input or policy bypassing validation.
 - A documented deny rule incorrectly returning allow.
 - Unexpected file or network access by the CLI.
+- A gateway decision copying raw tool arguments into its output or claiming a
+  request was forwarded.
 - Report output that exposes data not present in the supplied input or policy.
 - A Windows provider reading before explicit opt-in, querying raw values, changing a
   setting, or reporting an observation as independently verified.

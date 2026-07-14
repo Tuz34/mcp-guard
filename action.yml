@@ -1,5 +1,5 @@
-name: mcp-guard policy check
-description: Evaluate an MCP manifest or proposed agent action against a local policy.
+name: mcp-guard permission check
+description: Evaluate an MCP call, manifest, or proposed agent action against a local policy.
 author: mcp-guard contributors
 
 branding:
@@ -8,11 +8,11 @@ branding:
 
 inputs:
   command:
-    description: Run check for an action or scan for an MCP manifest.
+    description: Run check, scan, or the no-forward gateway-check.
     required: false
     default: check
   input-file:
-    description: Path to the proposed action JSON or MCP manifest JSON.
+    description: Path to the action, manifest, or MCP tools/call JSON.
     required: true
   policy-file:
     description: Path to the local mcp-guard YAML policy.
@@ -69,7 +69,8 @@ runs:
         case "$MCP_GUARD_COMMAND" in
           check) input_flag="--action" ;;
           scan) input_flag="--mcp-config" ;;
-          *) echo "mcp-guard action: command must be check or scan." >&2; exit 3 ;;
+          gateway-check) input_flag="--request" ;;
+          *) echo "mcp-guard action: command must be check, scan, or gateway-check." >&2; exit 3 ;;
         esac
         case "$MCP_GUARD_FORMAT" in
           json|markdown|html|sarif) ;;

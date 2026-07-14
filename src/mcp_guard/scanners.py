@@ -5,6 +5,7 @@ from typing import Any
 from .matching import flatten_schema, text_matches
 from .models import Evaluation, Reason, decision_for, risk_for
 from .policy import default_decision
+from .tool_policy import tool_name_is_allowed, tool_name_reasons
 from .validation import manifest_entries
 
 
@@ -18,7 +19,7 @@ def scan_manifest(manifest: dict[str, Any], policy: dict[str, Any]) -> list[Eval
         description = tool["description"]
         command = tool.get("command", "")
         schema_text = flatten_schema(tool["inputSchema"])
-        reasons: list[Reason] = []
+        reasons: list[Reason] = tool_name_reasons(name, mcp_rules)
 
         for effect in ("deny", "warn"):
             rule_name = f"{effect}_patterns"
@@ -42,16 +43,6 @@ def scan_manifest(manifest: dict[str, Any], policy: dict[str, Any]) -> list[Eval
                         "Tool description contains a blocked phrase.",
                     )
                 )
-        for pattern in mcp_rules.get("warn_if_name_contains", []):
-            if text_matches(name, pattern):
-                reasons.append(
-                    Reason(
-                        "mcp_tools.warn_if_name_contains",
-                        "warn",
-                        pattern,
-                        "Tool name indicates a powerful capability.",
-                    )
-                )
         for pattern in mcp_rules.get("warn_if_schema_contains", []):
             if text_matches(schema_text, pattern):
                 reasons.append(
@@ -63,6 +54,9 @@ def scan_manifest(manifest: dict[str, Any], policy: dict[str, Any]) -> list[Eval
                     )
                 )
 
-        decision = decision_for(reasons, default_decision(policy))
+        base_decision = (
+            "allow" if tool_name_is_allowed(name, mcp_rules) else default_decision(policy)
+        )
+        decision = decision_for(reasons, base_decision)
         output.append(Evaluation(decision, risk_for(decision), reasons, name))
     return output

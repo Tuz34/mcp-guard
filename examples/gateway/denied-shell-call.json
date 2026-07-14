@@ -1,0 +1,11 @@
+{
+  "jsonrpc": "2.0",
+  "id": "synthetic-deny-1",
+  "method": "tools/call",
+  "params": {
+    "name": "run_command",
+    "arguments": {
+      "command": "Remove-Item -Recurse C:\\synthetic-demo"
+    }
+  }
+}

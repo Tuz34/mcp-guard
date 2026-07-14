@@ -1,0 +1,11 @@
+{
+  "jsonrpc": "2.0",
+  "id": "synthetic-safe-1",
+  "method": "tools/call",
+  "params": {
+    "name": "read_file",
+    "arguments": {
+      "path": "docs/README.md"
+    }
+  }
+}

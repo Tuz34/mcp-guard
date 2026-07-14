@@ -45,9 +45,18 @@ A deny match takes precedence over an allow-list warning.
 
 ### `mcp_tools`
 
+- `allow_names`: complete tool-name globs. When present, a matching name creates
+  an explicit allow baseline; a non-matching name produces `deny`.
+- `deny_names`: complete tool-name globs that produce `deny`.
 - `deny_if_description_contains`: blocked phrases in a tool description.
 - `warn_if_name_contains`: powerful-capability phrases in a tool name.
 - `warn_if_schema_contains`: sensitive terms in the serialized `inputSchema`.
+
+`allow_names` and `deny_names` use case-insensitive complete glob matching.
+`read_file` therefore matches only that name, while `read_*` matches a family.
+The description, warning, and schema rules retain case-insensitive text/glob
+matching. Dynamic `tools/call` behavior is described in the
+[gateway contract](gateway.md).
 
 ## Precedence
 
@@ -55,7 +64,9 @@ The outcome is deterministic:
 
 1. Any deny finding results in `deny` and high risk.
 2. Otherwise, any warn finding results in `warn` and medium risk.
-3. Otherwise, `default_decision` determines the result.
+3. Otherwise, an `mcp_tools.allow_names` match supplies an explicit `allow`
+   baseline for that tool.
+4. Otherwise, `default_decision` determines the result.
 
 `default_decision` is only the no-match fallback. An explicit warn rule therefore
 returns `warn` even when the default is `deny`; use a deny rule for an unconditional

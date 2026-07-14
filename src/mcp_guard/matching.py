@@ -13,6 +13,11 @@ def text_matches(value: str, pattern: str) -> bool:
     return pattern_lower in value_lower
 
 
+def name_matches(value: str, pattern: str) -> bool:
+    """Match a complete tool name with case-insensitive glob semantics."""
+    return fnmatch.fnmatchcase(value.lower(), pattern.lower())
+
+
 def path_matches(value: str, pattern: str) -> bool:
     normalized = value.replace("\\", "/").lower()
     normalized_pattern = pattern.replace("\\", "/").lower()

@@ -8,6 +8,7 @@ from typing import Any
 
 from . import __version__
 from .evaluator import evaluate_action
+from .gateway import MAX_GATEWAY_REQUEST_BYTES, evaluate_mcp_request
 from .html_report import html_report
 from .models import aggregate
 from .policy import PolicyError, load_policy
@@ -39,16 +40,25 @@ from .windows_settings import (
 EXIT_CODES = {"allow": 0, "warn": 1, "deny": 2}
 
 
-def _read_json(path: str) -> dict[str, Any]:
+def _read_json(path: str, *, max_bytes: int | None = None) -> dict[str, Any]:
     input_path = Path(path)
     try:
-        data = json.loads(input_path.read_text(encoding="utf-8"))
+        with input_path.open("rb") as handle:
+            raw = handle.read(max_bytes + 1 if max_bytes is not None else -1)
     except OSError as exc:
         raise InputError(f"Could not read JSON input '{input_path}': {exc}") from exc
+    if max_bytes is not None and len(raw) > max_bytes:
+        raise InputError(f"JSON input '{input_path}' exceeds the {max_bytes}-byte limit.")
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise InputError(f"JSON input '{input_path}' must be valid UTF-8.") from exc
     except json.JSONDecodeError as exc:
         raise InputError(
             f"Invalid JSON in '{input_path}' at line {exc.lineno}, column {exc.colno}: {exc.msg}"
         ) from exc
+    except RecursionError as exc:
+        raise InputError(f"JSON input '{input_path}' is nested too deeply.") from exc
     if not isinstance(data, dict):
         raise InputError("JSON input must be an object.")
     return data
@@ -67,7 +77,7 @@ def _write(content: str, output: str | None) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mcp-guard",
-        description="Pre-flight policy checks for MCP tools and AI agents.",
+        description="Local permission decisions for MCP tool calls and AI agents.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -82,6 +92,14 @@ def build_parser() -> argparse.ArgumentParser:
             "--format", choices=["json", "markdown", "html", "sarif"], default="json"
         )
         child.add_argument("--output", help="Write the report to this path instead of stdout.")
+    gateway = sub.add_parser(
+        "gateway-check",
+        help="Evaluate one MCP tools/call request in no-forward dry-run mode.",
+    )
+    gateway.add_argument("--request", required=True)
+    gateway.add_argument("--policy", required=True)
+    gateway.add_argument("--format", choices=["json", "markdown", "html", "sarif"], default="json")
+    gateway.add_argument("--output", help="Write the report to this path instead of stdout.")
     report = sub.add_parser("report", help="Convert a saved JSON result into a report.")
     report.add_argument("--input", required=True)
     report.add_argument(
@@ -156,6 +174,14 @@ def _scan_document(source: str, policy_path: str, data: dict[str, Any]) -> dict[
     }
 
 
+def _gateway_document(source: str, policy_path: str, data: dict[str, Any]) -> dict[str, Any]:
+    policy = load_policy(policy_path)
+    return {
+        "policy": Path(policy_path).name,
+        **evaluate_mcp_request(data, policy).to_dict(source=Path(source).name),
+    }
+
+
 def run(args: argparse.Namespace) -> int:
     if args.command == "windows-compare":
         before = parse_observed_windows_snapshot(_read_json(args.before))
@@ -219,6 +245,9 @@ def run(args: argparse.Namespace) -> int:
     elif args.command == "check":
         data = _read_json(args.action)
         payload = _action_document(args.action, args.policy, data)
+    elif args.command == "gateway-check":
+        data = _read_json(args.request, max_bytes=MAX_GATEWAY_REQUEST_BYTES)
+        payload = _gateway_document(args.request, args.policy, data)
     else:
         data = _read_json(args.mcp_config)
         payload = _scan_document(args.mcp_config, args.policy, data)

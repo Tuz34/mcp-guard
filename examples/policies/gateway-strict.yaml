@@ -1,0 +1,36 @@
+version: 1
+default_decision: deny
+rules:
+  shell:
+    deny_patterns:
+      - "rm -rf"
+      - "Remove-Item -Recurse"
+      - "curl * | sh"
+    warn_patterns:
+      - "git push"
+      - "npm publish"
+  files:
+    deny_paths:
+      - ".env"
+      - "**/.env"
+      - "**/secrets/**"
+      - "**/credentials/**"
+    warn_paths:
+      - "**/*.pem"
+  network:
+    allow_domains:
+      - "github.com"
+      - "modelcontextprotocol.io"
+    deny_domains:
+      - "*.webhook.site"
+  mcp_tools:
+    allow_names:
+      - "read_file"
+      - "fetch_url"
+      - "run_command"
+    deny_names:
+      - "admin_*"
+      - "upload_*"
+    warn_if_name_contains:
+      - "write"
+      - "exec"
