@@ -1,0 +1,32 @@
+draft: true
+draft_schema_version: 1
+source: risky-server.json
+notice: 'Review required: generated drafts are not valid enforcement policies.'
+generated_policy:
+  version: 1
+  default_decision: warn
+  rules:
+    mcp_tools:
+      deny_names:
+      - upload_workspace
+      warn_if_name_contains:
+      - unrestricted_shell_exec
+recommendations:
+- tool: unrestricted_shell_exec
+  disposition: warn-review
+  capabilities:
+  - shell
+- tool: upload_workspace
+  disposition: deny-review
+  capabilities:
+  - filesystem
+  - mutation
+provenance:
+- rule: mcp_tools.warn_if_name_contains
+  pattern: unrestricted_shell_exec
+  source: manifest-tool:unrestricted_shell_exec
+  reason: fixed capability classifier matched name or schema keys
+- rule: mcp_tools.deny_names
+  pattern: upload_workspace
+  source: manifest-tool:upload_workspace
+  reason: fixed blocked-description category matched; raw text omitted

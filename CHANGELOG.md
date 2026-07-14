@@ -21,6 +21,9 @@ green cross-platform CI run and final review.
 
 ### Added
 
+- Deterministic, offline `policy-init` draft generation with per-rule provenance,
+  no generated allow rules, overwrite protection, and existing-policy coverage
+  checks in JSON or SARIF.
 - Offline policy contract tests, JSON/SARIF semantic lint, and versioned JSON
   Schema export for policies, actions, gateway requests, and reports.
 - Review-first Claude Code and Codex `PreToolUse` adapters with bounded event

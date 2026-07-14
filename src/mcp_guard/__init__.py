@@ -22,6 +22,7 @@ _MODULES = (
     "matching",
     "models",
     "policy",
+    "policy_draft",
     "policy_tooling",
     "profiles",
     "reports",

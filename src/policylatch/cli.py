@@ -22,6 +22,11 @@ from .gateway_trace import GatewayTraceError, gateway_trace_document, load_gatew
 from .html_report import html_report
 from .models import aggregate
 from .policy import PolicyError, load_policy, load_profile, policy_provenance
+from .policy_draft import (
+    policy_coverage_document,
+    policy_draft_document,
+    policy_draft_yaml,
+)
 from .policy_tooling import (
     lint_policy_document,
     load_policy_fixtures,
@@ -94,6 +99,12 @@ def _write(content: str, output: str | None) -> None:
         print(f"Wrote {output_path}", file=sys.stderr)
     else:
         print(content, end="")
+
+
+def _write_new(content: str, output: str | None, *, force: bool) -> None:
+    if output and Path(output).exists() and not force:
+        raise InputError(f"Output '{output}' already exists; pass --force to replace it.")
+    _write(content, output)
 
 
 def _add_policy_selector(parser: argparse.ArgumentParser) -> None:
@@ -193,6 +204,17 @@ def build_parser() -> argparse.ArgumentParser:
     schema = sub.add_parser("schema", help="Export a versioned PolicyLatch JSON Schema.")
     schema.add_argument("--kind", choices=SCHEMA_KINDS, required=True)
     schema.add_argument("--output")
+    policy_init = sub.add_parser(
+        "policy-init", help="Generate a non-enforceable policy draft or check policy coverage."
+    )
+    policy_init.add_argument("--mcp-config", required=True)
+    policy_init.add_argument("--check", action="store_true")
+    selector = policy_init.add_mutually_exclusive_group()
+    selector.add_argument("--policy")
+    selector.add_argument("--profile", choices=profile_names())
+    policy_init.add_argument("--format", choices=["json", "sarif"], default="json")
+    policy_init.add_argument("--output")
+    policy_init.add_argument("--force", action="store_true")
     report = sub.add_parser("report", help="Convert a saved JSON result into a report.")
     report.add_argument("--input", required=True)
     report.add_argument(
@@ -397,6 +419,26 @@ def _explain_markdown(payload: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "policy-init":
+        manifest = _read_json(args.mcp_config)
+        if args.check:
+            if not (args.policy or args.profile):
+                raise InputError("policy-init --check requires --policy or --profile.")
+            if args.force:
+                raise InputError("policy-init --check does not accept --force.")
+            policy, label = _selected_policy(args)
+            payload = policy_coverage_document(manifest, policy, label, args.mcp_config)
+            validate_report(payload)
+            renderer = json_report if args.format == "json" else sarif_report
+            _write(renderer(payload), args.output)
+            return EXIT_CODES[payload["decision"]]
+        if args.policy or args.profile:
+            raise InputError("Policy selectors are only valid with policy-init --check.")
+        if args.format != "json":
+            raise InputError("Draft generation emits YAML; --format is only valid with --check.")
+        draft = policy_draft_document(manifest, args.mcp_config)
+        _write_new(policy_draft_yaml(draft), args.output, force=args.force)
+        return 0
     if args.command == "schema":
         _write(json_report(export_schema(args.kind)), args.output)
         return 0

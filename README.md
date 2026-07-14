@@ -111,6 +111,19 @@ policylatch schema --kind policy --output policy-v1.schema.json
 See the [policy authoring toolkit](docs/policy-tooling.md) for fixture metadata,
 lint semantics, and CI exit codes.
 
+To bootstrap review from an MCP manifest, generate a non-enforceable draft. It
+never emits allow rules and refuses to overwrite an existing file by default:
+
+```bash
+policylatch policy-init --mcp-config examples/mcp/risky-server.json \
+  --output policy.draft.yaml
+policylatch policy-init --mcp-config examples/mcp/safe-server.json \
+  --check --policy examples/policies/balanced.yaml
+```
+
+See [draft-only policy generation](docs/policy-drafts.md) for the promotion and
+untrusted-description boundary.
+
 Expected decision:
 
 ```text
