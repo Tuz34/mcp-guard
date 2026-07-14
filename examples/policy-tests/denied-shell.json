@@ -1,0 +1,7 @@
+{
+  "_expected": "deny",
+  "_note": "Synthetic policy regression metadata; never passed to the evaluator.",
+  "action_type": "shell",
+  "command": "Remove-Item -Recurse D:\\Synthetic\\demo",
+  "tool": "run_command"
+}

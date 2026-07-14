@@ -21,6 +21,8 @@ green cross-platform CI run and final review.
 
 ### Added
 
+- Offline policy contract tests, JSON/SARIF semantic lint, and versioned JSON
+  Schema export for policies, actions, gateway requests, and reports.
 - Review-first Claude Code and Codex `PreToolUse` adapters with bounded event
   normalization, data-minimized decisions, generated config snippets, offline
   doctor checks, and explicit blocking-versus-advisory capability labels.

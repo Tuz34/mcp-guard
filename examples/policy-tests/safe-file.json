@@ -1,0 +1,7 @@
+{
+  "_expected": "allow",
+  "_note": "Synthetic policy regression metadata; never passed to the evaluator.",
+  "action_type": "file",
+  "path": "docs/README.md",
+  "tool": "read_file"
+}

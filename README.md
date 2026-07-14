@@ -99,6 +99,18 @@ Projects can extend a built-in profile or another local policy with deterministi
 replace-by-rule merge semantics. Includes are local-only and bounded; see the
 [policy reference](docs/policy-reference.md#profiles-and-local-inheritance).
 
+Policy authors can run synthetic expected-decision fixtures, semantic lint, and
+export versioned JSON Schemas without installing another framework:
+
+```bash
+policylatch policy-test --fixtures examples/policy-tests --profile strict
+policylatch policy-lint --policy policy.yaml --format sarif
+policylatch schema --kind policy --output policy-v1.schema.json
+```
+
+See the [policy authoring toolkit](docs/policy-tooling.md) for fixture metadata,
+lint semantics, and CI exit codes.
+
 Expected decision:
 
 ```text

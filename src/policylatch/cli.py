@@ -22,10 +22,16 @@ from .gateway_trace import GatewayTraceError, gateway_trace_document, load_gatew
 from .html_report import html_report
 from .models import aggregate
 from .policy import PolicyError, load_policy, load_profile, policy_provenance
+from .policy_tooling import (
+    lint_policy_document,
+    load_policy_fixtures,
+    policy_test_document,
+)
 from .profiles import profile_names
 from .reports import json_report, markdown_report, validate_report
 from .sarif_report import sarif_report
 from .scanners import scan_manifest
+from .schemas import SCHEMA_KINDS, export_schema
 from .validation import InputError
 from .windows_audit import parse_windows_audit_record, parse_windows_setting_action
 from .windows_compare import compare_windows_snapshots
@@ -171,6 +177,22 @@ def build_parser() -> argparse.ArgumentParser:
     adapter_doctor.add_argument("--runtime", choices=RUNTIMES, required=True)
     adapter_doctor.add_argument("--config", required=True)
     adapter_doctor.add_argument("--output")
+    policy_test = sub.add_parser(
+        "policy-test", help="Run synthetic expected-decision fixtures against a policy."
+    )
+    policy_test.add_argument("--fixtures", required=True)
+    _add_policy_selector(policy_test)
+    policy_test.add_argument("--format", choices=["json", "sarif"], default="json")
+    policy_test.add_argument("--output")
+    policy_lint = sub.add_parser(
+        "policy-lint", help="Report semantic policy findings without changing the policy."
+    )
+    _add_policy_selector(policy_lint)
+    policy_lint.add_argument("--format", choices=["json", "sarif"], default="json")
+    policy_lint.add_argument("--output")
+    schema = sub.add_parser("schema", help="Export a versioned PolicyLatch JSON Schema.")
+    schema.add_argument("--kind", choices=SCHEMA_KINDS, required=True)
+    schema.add_argument("--output")
     report = sub.add_parser("report", help="Convert a saved JSON result into a report.")
     report.add_argument("--input", required=True)
     report.add_argument(
@@ -375,6 +397,28 @@ def _explain_markdown(payload: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "schema":
+        _write(json_report(export_schema(args.kind)), args.output)
+        return 0
+    if args.command == "policy-lint":
+        policy, label = _selected_policy(args)
+        payload = lint_policy_document(policy, label)
+        validate_report(payload)
+        renderer = json_report if args.format == "json" else sarif_report
+        _write(renderer(payload), args.output)
+        return EXIT_CODES[payload["decision"]]
+    if args.command == "policy-test":
+        policy, label = _selected_policy(args)
+        payload = policy_test_document(
+            load_policy_fixtures(args.fixtures),
+            policy,
+            label,
+            args.fixtures,
+        )
+        validate_report(payload)
+        renderer = json_report if args.format == "json" else sarif_report
+        _write(renderer(payload), args.output)
+        return EXIT_CODES[payload["decision"]]
     if args.command == "adapter-config":
         policy = None
         if args.policy:
