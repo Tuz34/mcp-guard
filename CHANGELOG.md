@@ -24,6 +24,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   history output and explicit static filters.
 - GitHub Actions coverage for Python 3.10 and 3.12 on both Ubuntu and Windows,
   with read-only repository permissions and fail-fast disabled.
+- Explicitly opt-in, read-only Windows integration checks for fixed service,
+  HKCU, firewall-profile, and policy targets on GitHub-hosted Windows runners.
 - Allowlisted normalized audit facts for service runtime, service startup,
   firewall profile, and selected policy state without raw values.
 - Read-only service runtime/startup, firewall profile, and long-path policy
@@ -35,6 +37,13 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Verified Windows audit records now require the comparison provenance format
+  `snapshot_comparison:<before-source>-><after-source>`; unmarked verified claims
+  are rejected by `audit-append`.
+- Oversized JSONL records are bounded during reads, and Registry/service handle
+  cleanup failures no longer hide the original provider read error.
+- The service cleanup regression test now installs the Windows-only
+  `ctypes.get_last_error` test double portably on non-Windows runners.
 - Third-party Windows provider summaries are revalidated before snapshot output,
   preventing unallowlisted fact keys or free-form values from escaping.
 - Top-level paths now match `**/` policy patterns, preventing sensitive paths such
