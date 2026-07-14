@@ -21,6 +21,9 @@ green cross-platform CI run and final review.
 
 ### Added
 
+- Versioned deterministic decision receipts with canonical policy hashes,
+  redacted request fingerprints, rule provenance, JSON/JSONL extraction, and
+  Markdown/HTML/SARIF references.
 - Deterministic, offline `policy-init` draft generation with per-rule provenance,
   no generated allow rules, overwrite protection, and existing-policy coverage
   checks in JSON or SARIF.

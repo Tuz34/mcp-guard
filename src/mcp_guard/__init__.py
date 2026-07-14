@@ -25,6 +25,7 @@ _MODULES = (
     "policy_draft",
     "policy_tooling",
     "profiles",
+    "receipts",
     "reports",
     "sarif_report",
     "schemas",

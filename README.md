@@ -148,6 +148,17 @@ policylatch report --input scan-result.json --format markdown --output report.md
 policylatch report --input scan-result.json --format html --output report.html
 ```
 
+New decision reports include a deterministic, redacted receipt. Extract it as
+canonical JSONL without raw action arguments:
+
+```bash
+policylatch receipt --input scan-result.json --format jsonl --output receipt.jsonl
+```
+
+See [decision receipts](docs/decision-receipts.md) for canonical hashing,
+privacy-preserving projection collisions, schema versioning, and the explicit
+no-execution claim.
+
 Exit codes are automation-friendly: `0` allow, `1` warn, `2` deny, and `3` invalid input or policy.
 
 ## Policy example

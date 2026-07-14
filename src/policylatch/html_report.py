@@ -70,6 +70,13 @@ def html_report(data: dict[str, Any]) -> str:
         "<span>The policy did not produce a warn or deny reason.</span></div>"
     )
     finding_count = sum(len(items) for items in finding_items.values())
+    receipt = data.get("receipt")
+    receipt_fingerprint = receipt.get("receipt_fingerprint") if isinstance(receipt, dict) else None
+    receipt_html = (
+        f"<span>Receipt: <code>{_text(receipt_fingerprint)}</code></span>"
+        if isinstance(receipt_fingerprint, str)
+        else ""
+    )
 
     return f"""<!doctype html>
 <html lang="en">
@@ -197,6 +204,7 @@ def html_report(data: dict[str, Any]) -> str:
 
     <footer>
       <span>Risk: <strong>{_text(risk_level)}</strong></span>
+      {receipt_html}
       <span>Static local report. No scripts, telemetry, or external assets.</span>
     </footer>
   </main>

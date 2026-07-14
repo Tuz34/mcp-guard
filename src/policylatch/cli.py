@@ -33,6 +33,15 @@ from .policy_tooling import (
     policy_test_document,
 )
 from .profiles import profile_names
+from .receipts import (
+    action_request_projection,
+    attach_receipt,
+    gateway_request_projection,
+    manifest_request_projection,
+    receipt_jsonl,
+    report_request_projection,
+    validate_receipt,
+)
 from .reports import json_report, markdown_report, validate_report
 from .sarif_report import sarif_report
 from .scanners import scan_manifest
@@ -204,6 +213,12 @@ def build_parser() -> argparse.ArgumentParser:
     schema = sub.add_parser("schema", help="Export a versioned PolicyLatch JSON Schema.")
     schema.add_argument("--kind", choices=SCHEMA_KINDS, required=True)
     schema.add_argument("--output")
+    receipt = sub.add_parser(
+        "receipt", help="Extract and validate a decision receipt from a saved JSON report."
+    )
+    receipt.add_argument("--input", required=True)
+    receipt.add_argument("--format", choices=["json", "jsonl"], default="json")
+    receipt.add_argument("--output")
     policy_init = sub.add_parser(
         "policy-init", help="Generate a non-enforceable policy draft or check policy coverage."
     )
@@ -281,7 +296,7 @@ def _action_document(
     data: dict[str, Any],
 ) -> dict[str, Any]:
     evaluation = evaluate_action(data, policy)
-    return {
+    document = {
         "schema_version": 1,
         "kind": "action_evaluation",
         "source": source,
@@ -289,6 +304,7 @@ def _action_document(
         "policy_provenance": policy_provenance(policy),
         **evaluation.to_dict(),
     }
+    return attach_receipt(document, policy, action_request_projection(data))
 
 
 def _scan_document(
@@ -300,7 +316,7 @@ def _scan_document(
     evaluations = scan_manifest(data, policy)
     decision, risk_level = aggregate(evaluations)
     counts = {name: sum(item.decision == name for item in evaluations) for name in EXIT_CODES}
-    return {
+    document = {
         "schema_version": 1,
         "kind": "manifest_scan",
         "source": source,
@@ -311,6 +327,7 @@ def _scan_document(
         "summary": {"total": len(evaluations), **counts},
         "results": [result.to_dict() for result in evaluations],
     }
+    return attach_receipt(document, policy, manifest_request_projection(data))
 
 
 def _gateway_document(
@@ -319,11 +336,12 @@ def _gateway_document(
     policy_label: str,
     data: dict[str, Any],
 ) -> dict[str, Any]:
-    return {
+    document = {
         "policy": policy_label,
         "policy_provenance": policy_provenance(policy),
         **evaluate_mcp_request(data, policy).to_dict(source=Path(source).name),
     }
+    return attach_receipt(document, policy, gateway_request_projection(data))
 
 
 def _doctor_document(policy: dict[str, Any], policy_label: str) -> dict[str, Any]:
@@ -419,6 +437,16 @@ def _explain_markdown(payload: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "receipt":
+        report = _read_json(args.input)
+        validate_report(report)
+        receipt = report.get("receipt")
+        if not isinstance(receipt, dict):
+            raise InputError("Saved report does not contain a decision receipt.")
+        validate_receipt(receipt)
+        rendered = json_report(receipt) if args.format == "json" else receipt_jsonl(receipt)
+        _write(rendered, args.output)
+        return 0
     if args.command == "policy-init":
         manifest = _read_json(args.mcp_config)
         if args.check:
@@ -428,6 +456,7 @@ def run(args: argparse.Namespace) -> int:
                 raise InputError("policy-init --check does not accept --force.")
             policy, label = _selected_policy(args)
             payload = policy_coverage_document(manifest, policy, label, args.mcp_config)
+            attach_receipt(payload, policy, report_request_projection(payload))
             validate_report(payload)
             renderer = json_report if args.format == "json" else sarif_report
             _write(renderer(payload), args.output)
@@ -445,6 +474,7 @@ def run(args: argparse.Namespace) -> int:
     if args.command == "policy-lint":
         policy, label = _selected_policy(args)
         payload = lint_policy_document(policy, label)
+        attach_receipt(payload, policy, report_request_projection(payload))
         validate_report(payload)
         renderer = json_report if args.format == "json" else sarif_report
         _write(renderer(payload), args.output)
@@ -457,6 +487,7 @@ def run(args: argparse.Namespace) -> int:
             label,
             args.fixtures,
         )
+        attach_receipt(payload, policy, report_request_projection(payload))
         validate_report(payload)
         renderer = json_report if args.format == "json" else sarif_report
         _write(renderer(payload), args.output)
@@ -579,6 +610,7 @@ def run(args: argparse.Namespace) -> int:
             policy=label,
         )
         payload["policy_provenance"] = policy_provenance(policy)
+        attach_receipt(payload, policy, report_request_projection(payload))
     elif args.command == "report":
         payload = _read_json(args.input)
     elif args.command == "check":

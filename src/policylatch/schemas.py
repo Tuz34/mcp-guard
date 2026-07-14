@@ -7,7 +7,7 @@ from .policy import RULE_KEYS, VALID_DECISIONS
 from .profiles import profile_names
 
 SCHEMA_VERSION = 1
-SCHEMA_KINDS = ("action", "gateway-request", "policy", "report")
+SCHEMA_KINDS = ("action", "gateway-request", "policy", "receipt", "report")
 
 _TEXT_ARRAY = {
     "type": "array",
@@ -162,11 +162,89 @@ def report_schema() -> dict[str, Any]:
     }
 
 
+def receipt_schema() -> dict[str, Any]:
+    sha256 = {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://github.com/Tuz34/policylatch/schemas/receipt-v1.json",
+        "title": "PolicyLatch decision receipt v1",
+        "type": "object",
+        "required": [
+            "schema_version",
+            "kind",
+            "evaluator",
+            "policy",
+            "request",
+            "decision",
+            "rules",
+            "execution",
+            "extensions",
+            "receipt_fingerprint",
+        ],
+        "properties": {
+            "schema_version": {"const": 1},
+            "kind": {"const": "decision_receipt"},
+            "evaluator": {
+                "type": "object",
+                "required": ["name", "version"],
+                "properties": {
+                    "name": {"const": "policylatch"},
+                    "version": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "policy": {
+                "type": "object",
+                "required": ["hash", "profiles", "sources"],
+                "properties": {
+                    "hash": sha256,
+                    "profiles": {"type": "array", "items": {"type": "string"}},
+                    "sources": {"type": "array", "items": {"type": "string"}},
+                },
+                "additionalProperties": False,
+            },
+            "request": {
+                "type": "object",
+                "required": ["projection", "fingerprint"],
+                "properties": {
+                    "projection": {"type": "string"},
+                    "fingerprint": sha256,
+                },
+                "additionalProperties": False,
+            },
+            "decision": {"enum": sorted(VALID_DECISIONS)},
+            "rules": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "effect", "source"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "effect": {"enum": ["warn", "deny"]},
+                        "source": {"type": "string"},
+                    },
+                    "additionalProperties": False,
+                },
+            },
+            "execution": {
+                "type": "object",
+                "required": ["claimed"],
+                "properties": {"claimed": {"const": False}},
+                "additionalProperties": False,
+            },
+            "extensions": {"type": "object"},
+            "receipt_fingerprint": sha256,
+        },
+        "additionalProperties": False,
+    }
+
+
 def export_schema(kind: str) -> dict[str, Any]:
     builders = {
         "action": action_schema,
         "gateway-request": gateway_request_schema,
         "policy": policy_schema,
+        "receipt": receipt_schema,
         "report": report_schema,
     }
     try:

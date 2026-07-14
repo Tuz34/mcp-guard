@@ -90,6 +90,14 @@ def markdown_report(data: dict[str, Any]) -> str:
         lines += ["", "## Policy provenance", ""]
         for source in provenance["sources"]:
             lines.append(f"- `{_inline_code(source)}`")
+    receipt = data.get("receipt")
+    if isinstance(receipt, dict) and isinstance(receipt.get("receipt_fingerprint"), str):
+        lines += [
+            "",
+            "## Decision receipt",
+            "",
+            f"`{_inline_code(receipt['receipt_fingerprint'])}`",
+        ]
     lines += [
         "",
         "> PolicyLatch evaluates proposed actions; it does not execute tools or provide a sandbox.",

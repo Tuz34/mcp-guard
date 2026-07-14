@@ -65,22 +65,24 @@ def sarif_document(data: dict[str, Any]) -> dict[str, Any]:
         }
         for rule_id in sorted(rule_levels)
     ]
+    run: dict[str, Any] = {
+        "tool": {
+            "driver": {
+                "name": "policylatch",
+                "informationUri": "https://github.com/Tuz34/policylatch",
+                "semanticVersion": __version__,
+                "rules": rules,
+            }
+        },
+        "results": results,
+    }
+    receipt = data.get("receipt")
+    if isinstance(receipt, dict) and isinstance(receipt.get("receipt_fingerprint"), str):
+        run["properties"] = {"decisionReceipt": receipt["receipt_fingerprint"]}
     return {
         "$schema": _SCHEMA,
         "version": "2.1.0",
-        "runs": [
-            {
-                "tool": {
-                    "driver": {
-                        "name": "policylatch",
-                        "informationUri": "https://github.com/Tuz34/policylatch",
-                        "semanticVersion": __version__,
-                        "rules": rules,
-                    }
-                },
-                "results": results,
-            }
-        ],
+        "runs": [run],
     }
 
 

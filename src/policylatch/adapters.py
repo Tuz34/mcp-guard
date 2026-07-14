@@ -8,6 +8,7 @@ from typing import Any, Literal, cast
 
 from .gateway import evaluate_mcp_request
 from .policy import policy_provenance
+from .receipts import attach_receipt, gateway_request_projection
 from .validation import InputError
 
 RuntimeName = Literal["claude-code", "codex"]
@@ -50,12 +51,13 @@ def normalize_hook_event(runtime: str, event: dict[str, Any]) -> dict[str, Any]:
         # file content, prompts, credentials, or runtime metadata are never copied.
         arguments["__unclassified__"] = True
 
-    return {
+    document = {
         "jsonrpc": "2.0",
         "id": "policylatch-adapter",
         "method": "tools/call",
         "params": {"name": tool_name, "arguments": arguments},
     }
+    return document
 
 
 def adapter_decision_document(
@@ -67,7 +69,7 @@ def adapter_decision_document(
     selected = _runtime(runtime)
     request = normalize_hook_event(selected, event)
     result = evaluate_mcp_request(request, policy)
-    return {
+    document = {
         "schema_version": 1,
         "kind": "runtime_adapter_decision",
         "source": f"{selected}:PreToolUse",
@@ -81,6 +83,7 @@ def adapter_decision_document(
         },
         **result.to_entry(),
     }
+    return attach_receipt(document, policy, gateway_request_projection(request))
 
 
 def _reason_summary(document: dict[str, Any]) -> str:
