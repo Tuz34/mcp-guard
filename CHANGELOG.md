@@ -29,6 +29,8 @@ green cross-platform CI run and final review.
 - Runtime post-flight enforcement for correlated MCP tool results/errors, with
   clean-only default forwarding, scoped review approval, one-shot blocked-result
   approval, strict JSON parsing, and redacted local failures.
+- Bounded explicit-root MCP workspace inventory and value-aware summary baseline,
+  plus validated added/removed/changed and risk-increase diff gates.
 - Deterministic before/after policy simulation over shared synthetic fixtures,
   with all decision transitions, configurable relaxation gates, redacted
   receipts/provenance, rule-change heuristics, and counterexample suggestions.

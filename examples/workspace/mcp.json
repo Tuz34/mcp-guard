@@ -1,0 +1,14 @@
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Synthetic read-only workspace example.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string"}
+        }
+      }
+    }
+  ]
+}

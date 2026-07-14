@@ -48,6 +48,7 @@ _MODULES = (
     "windows_registry_state",
     "windows_service",
     "windows_settings",
+    "workspace",
 )
 
 for _name in _MODULES:

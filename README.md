@@ -76,6 +76,18 @@ See the [gateway contract](docs/gateway.md) for the exact protocol and safety
 boundary. Optional terminal approvals are fail-closed, fingerprint-bound, and
 documented in [scoped approvals](docs/approvals.md); `deny` cannot be overridden.
 
+Create a summary-only risk baseline for MCP configs under one explicit root:
+
+```bash
+policylatch workspace-scan \
+  --root examples/workspace \
+  --policy examples/policies/gateway-strict.yaml \
+  --output workspace-baseline.json
+```
+
+The [bounded workspace inventory](docs/workspace-inventory.md) never discovers a
+home/disk root automatically and never stores raw config values in its baseline.
+
 Evaluate a synthetic runtime hook and generate a review-first configuration
 snippet without changing Claude Code or Codex settings:
 

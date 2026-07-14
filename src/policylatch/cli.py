@@ -81,6 +81,7 @@ from .windows_settings import (
     FirewallRulePresenceProvider,
     LongPathsPolicyProvider,
 )
+from .workspace import workspace_diff_document, workspace_scan_document
 
 EXIT_CODES = {"allow": 0, "warn": 1, "deny": 2}
 MAX_JSON_INPUT_BYTES = 8 * 1024 * 1024
@@ -178,6 +179,29 @@ def build_parser() -> argparse.ArgumentParser:
     _add_policy_selector(replay)
     replay.add_argument("--format", choices=["json", "markdown", "html", "sarif"], default="json")
     replay.add_argument("--output", help="Write the report to this path instead of stdout.")
+    workspace_scan = sub.add_parser(
+        "workspace-scan",
+        help="Inventory bounded MCP JSON configs under one explicit workspace root.",
+    )
+    workspace_scan.add_argument("--root", required=True)
+    workspace_scan.add_argument("--pattern", action="append", default=[])
+    workspace_scan.add_argument("--max-depth", type=int, default=8)
+    workspace_scan.add_argument("--max-files", type=int, default=100)
+    workspace_scan.add_argument("--max-total-bytes", type=int, default=8 * 1024 * 1024)
+    _add_policy_selector(workspace_scan)
+    workspace_scan.add_argument("--format", choices=["json", "markdown", "sarif"], default="json")
+    workspace_scan.add_argument("--output")
+    workspace_diff = sub.add_parser(
+        "workspace-diff",
+        help="Compare two saved summary-only workspace inventory baselines.",
+    )
+    workspace_diff.add_argument("--before", required=True)
+    workspace_diff.add_argument("--after", required=True)
+    workspace_diff.add_argument(
+        "--fail-on", choices=["risk-increase", "never"], default="risk-increase"
+    )
+    workspace_diff.add_argument("--format", choices=["json", "markdown", "sarif"], default="json")
+    workspace_diff.add_argument("--output")
     stdio_gateway = sub.add_parser(
         "gateway-stdio",
         help="Run the opt-in fail-closed gateway for one explicit stdio MCP server.",
@@ -529,6 +553,39 @@ def _explain_markdown(payload: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "workspace-scan":
+        policy, label = _selected_policy(args)
+        payload = workspace_scan_document(
+            args.root,
+            policy,
+            label,
+            patterns=args.pattern,
+            max_depth=args.max_depth,
+            max_files=args.max_files,
+            max_total_bytes=args.max_total_bytes,
+        )
+        validate_report(payload)
+        rendered = {
+            "json": json_report,
+            "markdown": markdown_report,
+            "sarif": sarif_report,
+        }[args.format](payload)
+        _write(rendered, args.output)
+        return EXIT_CODES[payload["decision"]]
+    if args.command == "workspace-diff":
+        payload = workspace_diff_document(
+            _read_json(args.before),
+            _read_json(args.after),
+            fail_on=args.fail_on,
+        )
+        validate_report(payload)
+        rendered = {
+            "json": json_report,
+            "markdown": markdown_report,
+            "sarif": sarif_report,
+        }[args.format](payload)
+        _write(rendered, args.output)
+        return 2 if payload["gate"]["failed"] else 0
     if args.command == "gateway-stdio":
         if args.upstream_config == "-":
             raise InputError("gateway-stdio reserves stdin for MCP messages; use a config file.")
