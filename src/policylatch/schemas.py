@@ -7,7 +7,7 @@ from .policy import RULE_KEYS, VALID_DECISIONS
 from .profiles import profile_names
 
 SCHEMA_VERSION = 1
-SCHEMA_KINDS = ("action", "gateway-request", "policy", "receipt", "report")
+SCHEMA_KINDS = ("action", "gateway-request", "policy", "receipt", "report", "tool-result")
 
 _TEXT_ARRAY = {
     "type": "array",
@@ -239,6 +239,44 @@ def receipt_schema() -> dict[str, Any]:
     }
 
 
+def tool_result_schema() -> dict[str, Any]:
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://github.com/Tuz34/policylatch/schemas/tool-result-v1.json",
+        "title": "PolicyLatch tool result v1",
+        "type": "object",
+        "required": [
+            "schema_version",
+            "kind",
+            "request_id",
+            "result_id",
+            "tool",
+            "source_trust",
+        ],
+        "properties": {
+            "schema_version": {"const": 1},
+            "kind": {"const": "tool_result"},
+            "request_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "result_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "tool": {"type": "string", "minLength": 1, "maxLength": 256},
+            "source_trust": {"enum": ["trusted-local", "unknown", "untrusted"]},
+            "content": {"type": "string", "maxLength": 524288},
+            "fields": {
+                "type": "object",
+                "maxProperties": 128,
+                "propertyNames": {"maxLength": 128},
+                "additionalProperties": {"type": "string", "maxLength": 65536},
+            },
+            "expected_domains": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {"type": "string", "minLength": 1, "maxLength": 253},
+            },
+        },
+        "additionalProperties": False,
+    }
+
+
 def export_schema(kind: str) -> dict[str, Any]:
     builders = {
         "action": action_schema,
@@ -246,6 +284,7 @@ def export_schema(kind: str) -> dict[str, Any]:
         "policy": policy_schema,
         "receipt": receipt_schema,
         "report": report_schema,
+        "tool-result": tool_result_schema,
     }
     try:
         return builders[kind]()

@@ -77,6 +77,12 @@ def html_report(data: dict[str, Any]) -> str:
         if isinstance(receipt_fingerprint, str)
         else ""
     )
+    outcome = data.get("postflight_outcome")
+    outcome_html = (
+        f"<span>Outcome: <strong>{_text(outcome)}</strong></span>"
+        if isinstance(outcome, str)
+        else ""
+    )
 
     return f"""<!doctype html>
 <html lang="en">
@@ -204,6 +210,7 @@ def html_report(data: dict[str, Any]) -> str:
 
     <footer>
       <span>Risk: <strong>{_text(risk_level)}</strong></span>
+      {outcome_html}
       {receipt_html}
       <span>Static local report. No scripts, telemetry, or external assets.</span>
     </footer>

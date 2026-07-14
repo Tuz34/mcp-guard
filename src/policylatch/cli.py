@@ -52,6 +52,7 @@ from .receipts import (
     validate_receipt,
 )
 from .reports import json_report, markdown_report, validate_report
+from .result_scanner import MAX_TOOL_RESULT_BYTES, scan_tool_result
 from .sarif_report import sarif_report
 from .scanners import scan_manifest
 from .schemas import SCHEMA_KINDS, export_schema
@@ -257,6 +258,14 @@ def build_parser() -> argparse.ArgumentParser:
     journal_report.add_argument("--from", dest="from_timestamp")
     journal_report.add_argument("--to", dest="to_timestamp")
     journal_report.add_argument("--output")
+    result_scan = sub.add_parser(
+        "result-scan", help="Scan one saved tool_result JSON without running or forwarding a tool."
+    )
+    result_scan.add_argument("--input", required=True)
+    result_scan.add_argument(
+        "--format", choices=["json", "markdown", "html", "sarif"], default="json"
+    )
+    result_scan.add_argument("--output")
     policy_init = sub.add_parser(
         "policy-init", help="Generate a non-enforceable policy draft or check policy coverage."
     )
@@ -475,6 +484,19 @@ def _explain_markdown(payload: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "result-scan":
+        payload = scan_tool_result(
+            _read_json(args.input, max_bytes=MAX_TOOL_RESULT_BYTES), args.input
+        )
+        validate_report(payload)
+        rendered = {
+            "json": json_report,
+            "markdown": markdown_report,
+            "html": html_report,
+            "sarif": sarif_report,
+        }[args.format](payload)
+        _write(rendered, args.output)
+        return EXIT_CODES[payload["decision"]]
     if args.command == "journal-append":
         entry = append_journal(
             args.journal,

@@ -28,6 +28,7 @@ _MODULES = (
     "profiles",
     "receipts",
     "reports",
+    "result_scanner",
     "sarif_report",
     "schemas",
     "scanners",

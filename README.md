@@ -172,6 +172,16 @@ policylatch journal-report --input audit.jsonl --format html --output audit.html
 The [agent action journal](docs/action-journal.md) is data-minimized, bounded,
 always unverified, and separate from Windows state observation.
 
+Scan a saved/synthetic tool result before allowing it to influence another step:
+
+```bash
+policylatch result-scan --input examples/tool-results/malicious.json --format markdown
+```
+
+The explicit outcomes are `clean`, `review`, and `block-next-step`; raw result
+content and matches never enter reports. See the
+[tool result scanner](docs/tool-result-scanner.md).
+
 Exit codes are automation-friendly: `0` allow, `1` warn, `2` deny, and `3` invalid input or policy.
 
 ## Policy example

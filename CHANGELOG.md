@@ -21,6 +21,9 @@ green cross-platform CI run and final review.
 
 ### Added
 
+- Versioned, bounded `tool_result` post-flight scanner with deterministic
+  injection, secret-like, PII-field, external-URL, and exfiltration categories;
+  explicit clean/review/block-next-step outcomes; and redacted reports.
 - Explicit opt-in, append-only agent action journal with unverified lifecycle
   stages, receipt-only records, bounded strict JSONL, replay-window checks, and
   filtered static JSON/HTML reports.

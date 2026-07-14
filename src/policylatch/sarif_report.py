@@ -43,6 +43,9 @@ def sarif_document(data: dict[str, Any]) -> dict[str, Any]:
                 "decision": item["decision"],
                 "riskLevel": item["risk_level"],
             }
+            outcome = data.get("postflight_outcome")
+            if isinstance(outcome, str):
+                properties["postflightOutcome"] = outcome
             subject = item.get("subject")
             if isinstance(subject, str) and subject:
                 properties["subject"] = subject

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "kind": "tool_result",
+  "request_id": "synthetic-request-clean",
+  "result_id": "synthetic-result-clean",
+  "tool": "read_public_docs",
+  "source_trust": "untrusted",
+  "content": "Synthetic documentation lookup completed with two public sections.",
+  "fields": {
+    "section_count": "2"
+  },
+  "expected_domains": []
+}

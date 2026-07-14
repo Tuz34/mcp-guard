@@ -69,6 +69,9 @@ def markdown_report(data: dict[str, Any]) -> str:
                 "",
             ]
         )
+    outcome = data.get("postflight_outcome")
+    if isinstance(outcome, str):
+        lines.extend([f"Post-flight outcome: **{outcome.upper()}**", ""])
     lines.extend(["| Subject | Decision | Risk |", "|---|---|---|"])
     for item in rows:
         subject = _table_cell(item.get("subject", "action"))
