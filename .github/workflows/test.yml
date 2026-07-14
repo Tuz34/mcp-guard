@@ -46,5 +46,5 @@ jobs:
         env:
           POLICYLATCH_WINDOWS_INTEGRATION: "1"
         run: pytest tests/test_windows_integration.py
-      - run: ruff check .
+      - run: ruff check . --output-format=github
       - run: ruff format --check .
