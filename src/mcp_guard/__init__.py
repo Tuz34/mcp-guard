@@ -20,6 +20,7 @@ _MODULES = (
     "evaluator",
     "gateway",
     "gateway_trace",
+    "git_gate",
     "html_report",
     "journal",
     "matching",

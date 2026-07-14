@@ -1,0 +1,7 @@
+diff --git a/examples/workspace/mcp.json b/examples/workspace/mcp.json
+index 1111111..2222222 100644
+--- a/examples/workspace/mcp.json
++++ b/examples/workspace/mcp.json
+@@ -1 +1 @@
+-{"synthetic_state":"before"}
++{"synthetic_state":"after"}

@@ -88,6 +88,19 @@ policylatch workspace-scan \
 The [bounded workspace inventory](docs/workspace-inventory.md) never discovers a
 home/disk root automatically and never stores raw config values in its baseline.
 
+Gate a caller-supplied Git diff without letting PolicyLatch run Git or install a
+hook:
+
+```bash
+policylatch git-check \
+  --diff examples/git/manifest-change.diff \
+  --manifest examples/workspace/mcp.json \
+  --policy examples/policies/gateway-strict.yaml
+```
+
+See the [supplied Git diff gate](docs/git-gate.md) for bounded parsing, evidence,
+CI thresholds, and review-first snippet generation.
+
 Evaluate a synthetic runtime hook and generate a review-first configuration
 snippet without changing Claude Code or Codex settings:
 
@@ -546,9 +559,10 @@ types, fixtures, and false-positive tests are welcome.
 - **Current development (unreleased):** No-forward `tools/call` checks, bounded
   trace replay, an opt-in fail-closed stdio gateway, explicit tool rules, opt-in
   Windows audit snapshots/history, SARIF, the reusable GitHub Action, and thin
-  review-first Claude Code/Codex hook adapters.
-- **Next gateway milestone:** Bounded workspace baselines and Git diff gates.
-- **Later:** Runtime tool-metadata policy and an optional policy
+  review-first Claude Code/Codex hook adapters, scoped approvals, response gates,
+  workspace baselines, and supplied Git diff gates.
+- **Next gateway milestone:** Runtime tool-metadata policy for dynamic manifests.
+- **Later:** Streamable HTTP evaluation and an optional policy
   adapter such as OPA/Rego.
 
 The PolicyLatch name is approved and the compatibility migration is under review.

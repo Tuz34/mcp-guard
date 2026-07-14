@@ -21,6 +21,12 @@ from .budgets import action_budget_facts, budget_check_document
 from .evaluator import evaluate_action
 from .gateway import MAX_GATEWAY_REQUEST_BYTES, evaluate_mcp_request
 from .gateway_trace import GatewayTraceError, gateway_trace_document, load_gateway_trace
+from .git_gate import (
+    MAX_DIFF_BYTES,
+    git_check_document,
+    git_integration_snippet,
+    parse_unified_diff,
+)
 from .html_report import html_report
 from .journal import (
     JOURNAL_STAGES,
@@ -125,6 +131,20 @@ def _write(content: str, output: str | None) -> None:
         print(content, end="")
 
 
+def _read_bytes(path: str, *, max_bytes: int, label: str) -> bytes:
+    if path == "-":
+        raw = sys.stdin.buffer.read(max_bytes + 1)
+    else:
+        try:
+            with Path(path).open("rb") as handle:
+                raw = handle.read(max_bytes + 1)
+        except OSError as exc:
+            raise InputError(f"Could not read {label} input.") from exc
+    if len(raw) > max_bytes:
+        raise InputError(f"{label} input exceeds the {max_bytes}-byte limit.")
+    return raw
+
+
 def _write_new(content: str, output: str | None, *, force: bool) -> None:
     if output and Path(output).exists() and not force:
         raise InputError(f"Output '{output}' already exists; pass --force to replace it.")
@@ -202,6 +222,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     workspace_diff.add_argument("--format", choices=["json", "markdown", "sarif"], default="json")
     workspace_diff.add_argument("--output")
+    git_check = sub.add_parser(
+        "git-check",
+        help="Evaluate one supplied bounded unified diff without invoking Git.",
+    )
+    git_check.add_argument("--diff", required=True)
+    git_check.add_argument("--manifest", action="append", default=[])
+    selector = git_check.add_mutually_exclusive_group()
+    selector.add_argument("--policy")
+    selector.add_argument("--profile", choices=profile_names())
+    git_check.add_argument("--policy-before")
+    git_check.add_argument("--policy-after")
+    git_check.add_argument("--fixtures")
+    git_check.add_argument("--policy-fail-on", choices=POLICY_DIFF_GATES, default="deny-to-allow")
+    git_check.add_argument("--fail-on", choices=["warn", "deny", "never"], default="warn")
+    git_check.add_argument("--format", choices=["json", "markdown", "sarif"], default="json")
+    git_check.add_argument("--output")
+    git_snippet = sub.add_parser(
+        "git-snippet",
+        help="Generate a review-first integration snippet without installing it.",
+    )
+    git_snippet.add_argument("--kind", choices=["pre-commit", "github-actions"], required=True)
+    git_snippet.add_argument("--output")
     stdio_gateway = sub.add_parser(
         "gateway-stdio",
         help="Run the opt-in fail-closed gateway for one explicit stdio MCP server.",
@@ -553,6 +595,51 @@ def _explain_markdown(payload: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "git-snippet":
+        _write(git_integration_snippet(args.kind), args.output)
+        return 0
+    if args.command == "git-check":
+        if bool(args.manifest) != bool(args.policy or args.profile):
+            raise InputError("git-check --manifest requires exactly one policy selector.")
+        policy_inputs = [args.policy_before, args.policy_after, args.fixtures]
+        if any(policy_inputs) and not all(policy_inputs):
+            raise InputError(
+                "git-check policy evidence requires --policy-before, "
+                "--policy-after, and --fixtures."
+            )
+        manifest_evidence = []
+        if args.manifest:
+            policy, label = _selected_policy(args)
+            manifest_evidence = [
+                _scan_document(path, policy, label, _read_json(path)) for path in args.manifest
+            ]
+        policy_evidence = None
+        if all(policy_inputs):
+            before = load_policy(args.policy_before)
+            after = load_policy(args.policy_after)
+            policy_evidence = policy_diff_document(
+                load_policy_fixtures(args.fixtures),
+                before,
+                after,
+                Path(args.policy_before).name,
+                Path(args.policy_after).name,
+                args.fixtures,
+                args.policy_fail_on,
+            )
+        payload = git_check_document(
+            parse_unified_diff(_read_bytes(args.diff, max_bytes=MAX_DIFF_BYTES, label="Git diff")),
+            manifest_evidence=manifest_evidence,
+            policy_evidence=policy_evidence,
+            fail_on=args.fail_on,
+        )
+        validate_report(payload)
+        rendered = {
+            "json": json_report,
+            "markdown": markdown_report,
+            "sarif": sarif_report,
+        }[args.format](payload)
+        _write(rendered, args.output)
+        return 2 if payload["gate"]["failed"] else 0
     if args.command == "workspace-scan":
         policy, label = _selected_policy(args)
         payload = workspace_scan_document(

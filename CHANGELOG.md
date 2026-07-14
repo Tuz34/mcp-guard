@@ -31,6 +31,9 @@ green cross-platform CI run and final review.
   approval, strict JSON parsing, and redacted local failures.
 - Bounded explicit-root MCP workspace inventory and value-aware summary baseline,
   plus validated added/removed/changed and risk-increase diff gates.
+- Bounded caller-supplied unified-diff parsing, MCP/policy evidence reuse,
+  data-minimized Git gates, and review-first pre-commit/GitHub Actions snippets
+  without invoking Git or installing hooks.
 - Deterministic before/after policy simulation over shared synthetic fixtures,
   with all decision transitions, configurable relaxation gates, redacted
   receipts/provenance, rule-change heuristics, and counterexample suggestions.
