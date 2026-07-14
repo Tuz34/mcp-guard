@@ -19,6 +19,7 @@ _MODULES = (
     "gateway",
     "gateway_trace",
     "html_report",
+    "journal",
     "matching",
     "models",
     "policy",

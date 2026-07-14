@@ -21,6 +21,9 @@ green cross-platform CI run and final review.
 
 ### Added
 
+- Explicit opt-in, append-only agent action journal with unverified lifecycle
+  stages, receipt-only records, bounded strict JSONL, replay-window checks, and
+  filtered static JSON/HTML reports.
 - Versioned deterministic decision receipts with canonical policy hashes,
   redacted request fingerprints, rule provenance, JSON/JSONL extraction, and
   Markdown/HTML/SARIF references.

@@ -159,6 +159,19 @@ See [decision receipts](docs/decision-receipts.md) for canonical hashing,
 privacy-preserving projection collisions, schema versioning, and the explicit
 no-execution claim.
 
+Persist receipt references only when local history is explicitly enabled, then
+check a short replay window or render a static filtered report:
+
+```bash
+policylatch journal-append --input report.json --journal audit.jsonl \
+  --stage evaluated --enable-journal
+policylatch journal-check --input report.json --journal audit.jsonl
+policylatch journal-report --input audit.jsonl --format html --output audit.html
+```
+
+The [agent action journal](docs/action-journal.md) is data-minimized, bounded,
+always unverified, and separate from Windows state observation.
+
 Exit codes are automation-friendly: `0` allow, `1` warn, `2` deny, and `3` invalid input or policy.
 
 ## Policy example

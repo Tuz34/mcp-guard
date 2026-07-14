@@ -20,6 +20,15 @@ from .evaluator import evaluate_action
 from .gateway import MAX_GATEWAY_REQUEST_BYTES, evaluate_mcp_request
 from .gateway_trace import GatewayTraceError, gateway_trace_document, load_gateway_trace
 from .html_report import html_report
+from .journal import (
+    JOURNAL_STAGES,
+    append_journal,
+    filter_journal,
+    journal_html_report,
+    journal_report_document,
+    load_journal,
+    replay_check_document,
+)
 from .models import aggregate
 from .policy import PolicyError, load_policy, load_profile, policy_provenance
 from .policy_draft import (
@@ -219,6 +228,35 @@ def build_parser() -> argparse.ArgumentParser:
     receipt.add_argument("--input", required=True)
     receipt.add_argument("--format", choices=["json", "jsonl"], default="json")
     receipt.add_argument("--output")
+    journal_append = sub.add_parser(
+        "journal-append", help="Append a validated, data-minimized decision event to JSONL."
+    )
+    journal_append.add_argument("--input", required=True)
+    journal_append.add_argument("--journal", required=True)
+    journal_append.add_argument("--stage", choices=JOURNAL_STAGES, default="evaluated")
+    journal_append.add_argument("--at")
+    journal_append.add_argument("--window-seconds", type=int, default=300)
+    journal_append.add_argument("--enable-journal", action="store_true")
+    journal_append.add_argument("--output")
+    journal_check = sub.add_parser(
+        "journal-check", help="Check a decision receipt against a local replay window."
+    )
+    journal_check.add_argument("--input", required=True)
+    journal_check.add_argument("--journal", required=True)
+    journal_check.add_argument("--at")
+    journal_check.add_argument("--window-seconds", type=int, default=300)
+    journal_check.add_argument("--output")
+    journal_report = sub.add_parser(
+        "journal-report", help="Render a filtered local action journal as JSON or HTML."
+    )
+    journal_report.add_argument("--input", required=True)
+    journal_report.add_argument("--format", choices=["json", "html"], default="html")
+    journal_report.add_argument("--stage", choices=JOURNAL_STAGES)
+    journal_report.add_argument("--decision", choices=["allow", "warn", "deny"])
+    journal_report.add_argument("--duplicate", choices=["true", "false"])
+    journal_report.add_argument("--from", dest="from_timestamp")
+    journal_report.add_argument("--to", dest="to_timestamp")
+    journal_report.add_argument("--output")
     policy_init = sub.add_parser(
         "policy-init", help="Generate a non-enforceable policy draft or check policy coverage."
     )
@@ -437,6 +475,51 @@ def _explain_markdown(payload: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "journal-append":
+        entry = append_journal(
+            args.journal,
+            _read_json(args.input),
+            stage=args.stage,
+            recorded_at=args.at,
+            window_seconds=args.window_seconds,
+            enabled=args.enable_journal,
+        )
+        _write(json_report(entry), args.output)
+        return 0
+    if args.command == "journal-check":
+        payload = replay_check_document(
+            _read_json(args.input),
+            args.journal,
+            at=args.at,
+            window_seconds=args.window_seconds,
+        )
+        validate_report(payload)
+        _write(json_report(payload), args.output)
+        return EXIT_CODES[payload["decision"]]
+    if args.command == "journal-report":
+        records = load_journal(args.input)
+        if records is None:
+            raise InputError("Journal source is unavailable.")
+        duplicate = None if args.duplicate is None else args.duplicate == "true"
+        filters = {
+            "stage": args.stage,
+            "decision": args.decision,
+            "duplicate": duplicate,
+            "from_timestamp": args.from_timestamp,
+            "to_timestamp": args.to_timestamp,
+        }
+        filtered = filter_journal(
+            records,
+            stage=args.stage,
+            decision=args.decision,
+            duplicate=duplicate,
+            from_timestamp=args.from_timestamp,
+            to_timestamp=args.to_timestamp,
+        )
+        payload = journal_report_document(filtered, args.input, filters)
+        renderer = json_report if args.format == "json" else journal_html_report
+        _write(renderer(payload), args.output)
+        return 0
     if args.command == "receipt":
         report = _read_json(args.input)
         validate_report(report)
