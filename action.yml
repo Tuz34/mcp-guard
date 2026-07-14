@@ -18,7 +18,7 @@ inputs:
     description: Path to the local mcp-guard YAML policy.
     required: true
   format:
-    description: "Report format: json, markdown, or html."
+    description: "Report format: json, markdown, html, or sarif."
     required: false
     default: json
   output-file:
@@ -72,8 +72,8 @@ runs:
           *) echo "mcp-guard action: command must be check or scan." >&2; exit 3 ;;
         esac
         case "$MCP_GUARD_FORMAT" in
-          json|markdown|html) ;;
-          *) echo "mcp-guard action: format must be json, markdown, or html." >&2; exit 3 ;;
+          json|markdown|html|sarif) ;;
+          *) echo "mcp-guard action: format must be json, markdown, html, or sarif." >&2; exit 3 ;;
         esac
         case "$MCP_GUARD_FAIL_ON" in
           never|warn|deny) ;;

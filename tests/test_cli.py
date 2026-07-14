@@ -160,6 +160,33 @@ def test_non_string_network_url_returns_clean_input_error(tmp_path, capsys):
     assert "Traceback" not in captured.err
 
 
+@pytest.mark.parametrize(
+    "command,input_flag,input_path",
+    [
+        ("check", "--action", "examples/actions/risky-shell-command.json"),
+        ("scan", "--mcp-config", "examples/mcp/risky-server.json"),
+    ],
+)
+def test_check_and_scan_emit_sarif_to_stdout(capsys, command, input_flag, input_path):
+    code = main(
+        [
+            command,
+            input_flag,
+            str(ROOT / input_path),
+            "--policy",
+            str(ROOT / "examples/policies/balanced.yaml"),
+            "--format",
+            "sarif",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert payload["version"] == "2.1.0"
+    assert payload["runs"][0]["tool"]["driver"]["name"] == "mcp-guard"
+    assert payload["runs"][0]["results"]
+
+
 def test_audit_append_requires_explicit_history_flag(tmp_path, capsys):
     history = tmp_path / "audit.jsonl"
     code = main(

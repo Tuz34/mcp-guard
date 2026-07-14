@@ -14,6 +14,8 @@ green cross-platform CI run and final review.
 
 - Reusable composite GitHub Action for `check` and `scan`, with explicit decision,
   exit-code, report-path, and fail-threshold outputs.
+- Deterministic SARIF 2.1.0 reports for GitHub Code Scanning, with deduplicated
+  rules and data-minimized messages/locations.
 - Self-contained, responsive HTML reports with no scripts or external assets.
 - Experimental, summary-only Windows audit record contract with synthetic
   fixtures and strict proposed/observed/verified trust states. This foundation

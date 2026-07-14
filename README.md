@@ -280,6 +280,35 @@ revision and does not execute the proposed tool call.
 `deny`; malformed input/configuration always fails with exit code `3`. Pin a
 reviewed commit until a release tag is available.
 
+For GitHub Code Scanning, generate SARIF without hiding the subsequent upload
+step behind a policy decision, then upload the artifact with GitHub's CodeQL
+action:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+
+steps:
+  - uses: actions/checkout@v7
+  - id: guard
+    uses: Tuz34/mcp-guard@<reviewed-commit-or-release>
+    with:
+      command: scan
+      input-file: examples/mcp/risky-server.json
+      policy-file: examples/policies/balanced.yaml
+      format: sarif
+      output-file: artifacts/mcp-guard.sarif
+      fail-on: never
+  - uses: github/codeql-action/upload-sarif@v3
+    with:
+      sarif_file: artifacts/mcp-guard.sarif
+```
+
+SARIF messages intentionally omit the raw `matched` value, and absolute input
+paths are reduced to a basename to avoid publishing local path or matched-content
+details to Code Scanning.
+
 ## Development
 
 ```bash

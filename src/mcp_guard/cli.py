@@ -12,6 +12,7 @@ from .html_report import html_report
 from .models import aggregate
 from .policy import PolicyError, load_policy
 from .reports import json_report, markdown_report, validate_report
+from .sarif_report import sarif_report
 from .scanners import scan_manifest
 from .validation import InputError
 from .windows_audit import parse_windows_audit_record, parse_windows_setting_action
@@ -77,11 +78,15 @@ def build_parser() -> argparse.ArgumentParser:
         child = sub.add_parser(command, help=help_text)
         child.add_argument(input_flag, required=True)
         child.add_argument("--policy", required=True)
-        child.add_argument("--format", choices=["json", "markdown", "html"], default="json")
+        child.add_argument(
+            "--format", choices=["json", "markdown", "html", "sarif"], default="json"
+        )
         child.add_argument("--output", help="Write the report to this path instead of stdout.")
     report = sub.add_parser("report", help="Convert a saved JSON result into a report.")
     report.add_argument("--input", required=True)
-    report.add_argument("--format", choices=["json", "markdown", "html"], default="markdown")
+    report.add_argument(
+        "--format", choices=["json", "markdown", "html", "sarif"], default="markdown"
+    )
     report.add_argument("--output", help="Write the report to this path instead of stdout.")
     audit_append = sub.add_parser(
         "audit-append", help="Append a validated Windows audit record to local JSONL history."
@@ -220,7 +225,12 @@ def run(args: argparse.Namespace) -> int:
 
     validate_report(payload)
     decision = payload["decision"]
-    renderers = {"json": json_report, "markdown": markdown_report, "html": html_report}
+    renderers = {
+        "json": json_report,
+        "markdown": markdown_report,
+        "html": html_report,
+        "sarif": sarif_report,
+    }
     rendered = renderers[args.format](payload)
     _write(rendered, args.output)
     return EXIT_CODES[decision]
