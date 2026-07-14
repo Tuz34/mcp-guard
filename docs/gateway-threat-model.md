@@ -71,7 +71,7 @@ The current code has no passive/transparent mode. `forwarded` is always `false`.
 |---|---|---|
 | Gateway bypass through a direct server configuration | Clearly documented limitation | Adapter/doctor must show the effective command and warn about unguarded alternate configs. |
 | Prompt injection or poisoned tool description | Static manifest warnings; policy is not generated from descriptions | Never let tool prose alter policy or approval state. |
-| Unknown or smuggled argument shape | Known keys are type checked; fully unclassified non-empty arguments return `warn` | Bind every enforced tool to its reviewed input schema or explicit argument mapping; unknown mappings fail closed. |
+| Unknown or smuggled argument shape | Known keys are type checked; any unknown top-level argument returns `warn`, including mixed known/unknown calls | Bind every enforced tool to its reviewed input schema or explicit argument mapping; unknown mappings fail closed. |
 | Tool-name confusion | Complete case-insensitive glob matching | Bind policy to an explicit upstream server identity as well as tool name. |
 | Confused deputy across servers with the same tool name | No live forwarding exists | Policy lookup key must include server identity; never share approval solely by tool name. |
 | Replay or duplicate request ID | Offline replay has no side effects | Track in-flight IDs per connection; reject duplicate outstanding IDs and never reuse an approval. |
@@ -79,7 +79,7 @@ The current code has no passive/transparent mode. `forwarded` is always `false`.
 | Oversized or deeply nested input | 1 MiB request/line, 8 MiB trace, 1,000 records, bounded IDs, nesting rejection | Apply byte, depth, queue, and in-flight limits before forwarding. |
 | Backpressure or deadlock | No subprocess or pipe exists | Use bounded queues, pause reads when full, keep stdout protocol-only, and drain stderr separately. |
 | Gateway crash becoming fail-open | Non-zero CLI exits are documented as closed | Client configuration must point only to the gateway; gateway failure terminates the connection and never launches a bypass path. |
-| Argument or credential leakage | Raw arguments/task metadata are omitted; paths become basenames | Structured summary logs only, opt-in debug redaction, no environment or credential capture. |
+| Argument or credential leakage | Raw arguments/task metadata and non-allowlisted hostnames are omitted; paths become basenames | Structured summary logs only, opt-in debug redaction, no environment or credential capture. |
 | Policy tampering | Strict schema and local file | Recommend version control; load once per session or use explicit atomic reload with validation. |
 | Shell injection in upstream launch | No upstream launch exists | Use argv without a shell; never build a shell command string. |
 | Orphaned upstream process | No upstream process exists | Deterministic terminate/kill timeout and cleanup on EOF, cancellation, parse failure, or gateway exit. |

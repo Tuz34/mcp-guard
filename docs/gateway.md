@@ -62,17 +62,20 @@ policy engine:
 |---|---|
 | `command` | `shell` |
 | `path` | `files` |
-| `url` or `domain` | `network` |
+| exactly one of `url` or `domain` | `network` |
 
 If multiple recognized capabilities are present, all are evaluated and the most
-restrictive finding wins. Nested arguments and server-specific aliases are not
-inferred. A non-empty call with no recognized capability returns `warn`, even
-when the tool name is allowlisted. A future adapter must declare such mappings
-explicitly instead of guessing from arbitrary data.
+restrictive finding wins. Supplying both `url` and `domain` is ambiguous and is
+rejected as invalid input. Nested arguments and server-specific aliases are not
+inferred. Any unknown top-level argument adds an `unclassified` capability and a
+`warn` finding, even when a recognized capability and allowlisted tool name are
+also present. A future adapter must declare such mappings explicitly instead of
+guessing from arbitrary data.
 
 The decision output includes the request ID, method, tool name, capability names,
-and policy findings. It intentionally does not copy raw `arguments`; source and
-policy paths are reduced to basenames in gateway decisions.
+and policy findings. It intentionally does not copy raw `arguments` or a raw
+non-allowlisted hostname; source and policy paths are reduced to basenames in
+gateway decisions.
 
 ## Current security boundary
 

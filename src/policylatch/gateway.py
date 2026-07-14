@@ -12,6 +12,7 @@ from .validation import InputError
 MAX_GATEWAY_REQUEST_BYTES = 1024 * 1024
 MAX_TOOL_NAME_CHARS = 256
 MAX_REQUEST_ID_CHARS = 256
+RECOGNIZED_ARGUMENT_KEYS = frozenset({"command", "path", "url", "domain"})
 
 
 @dataclass(frozen=True)
@@ -105,21 +106,25 @@ def _capability_actions(call: McpToolCall) -> list[dict[str, Any]]:
     if isinstance(path, str):
         actions.append({"action_type": "file", "path": path, "tool": call.name})
 
-    url = arguments.get("url")
-    domain = arguments.get("domain")
-    for field, value in (("url", url), ("domain", domain)):
-        if field in arguments and not isinstance(value, str):
+    for field in ("url", "domain"):
+        if field in arguments and not isinstance(arguments[field], str):
             raise InputError(f"MCP tools/call arguments.{field} must be a string.")
-    if ("url" in arguments or "domain" in arguments) and not any(
-        isinstance(value, str) and value.strip() for value in (url, domain)
-    ):
+    network_fields = [
+        field
+        for field in ("url", "domain")
+        if isinstance(arguments.get(field), str) and arguments[field].strip()
+    ]
+    if len(network_fields) > 1:
+        raise InputError(
+            "MCP tools/call network arguments must provide exactly one of url or domain."
+        )
+    if ("url" in arguments or "domain" in arguments) and not network_fields:
         raise InputError("MCP tools/call network arguments require a non-empty url or domain.")
-    if any(isinstance(value, str) and value.strip() for value in (url, domain)):
+    if network_fields:
+        field = network_fields[0]
+        value = arguments[field]
         action: dict[str, Any] = {"action_type": "network", "tool": call.name}
-        if isinstance(url, str):
-            action["url"] = url
-        if isinstance(domain, str):
-            action["domain"] = domain
+        action[field] = value
         actions.append(action)
 
     return actions
@@ -130,6 +135,7 @@ def evaluate_mcp_request(request: dict[str, Any], policy: dict[str, Any]) -> Gat
     mcp_rules = policy["rules"].get("mcp_tools", {})
     reasons = tool_name_reasons(call.name, mcp_rules)
     actions = _capability_actions(call)
+    has_unclassified_arguments = bool(set(call.arguments) - RECOGNIZED_ARGUMENT_KEYS)
     if call.task_augmented:
         reasons.append(
             Reason(
@@ -139,7 +145,7 @@ def evaluate_mcp_request(request: dict[str, Any], policy: dict[str, Any]) -> Gat
                 "Task-augmented tool calls need an explicit lifecycle policy.",
             )
         )
-    if call.arguments and not actions:
+    if has_unclassified_arguments:
         reasons.append(
             Reason(
                 "gateway.arguments.unclassified",
@@ -163,5 +169,8 @@ def evaluate_mcp_request(request: dict[str, Any], policy: dict[str, Any]) -> Gat
         reasons=reasons,
         subject=call.name,
     )
-    capabilities = tuple(action["action_type"] for action in actions) or ("unclassified",)
+    capability_names = [action["action_type"] for action in actions]
+    if has_unclassified_arguments:
+        capability_names.append("unclassified")
+    capabilities = tuple(capability_names) or ("unclassified",)
     return GatewayResult(call=call, evaluation=evaluation, capabilities=capabilities)

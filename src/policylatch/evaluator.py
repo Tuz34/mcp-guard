@@ -101,7 +101,7 @@ def evaluate_action(action: dict[str, Any], policy: dict[str, Any]) -> Evaluatio
                 Reason(
                     "network.allow_domains",
                     "warn",
-                    domain,
+                    "outside-allowlist",
                     "Destination is not on the allow list.",
                 )
             )

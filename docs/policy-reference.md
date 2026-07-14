@@ -73,6 +73,8 @@ returns `warn` even when the default is `deny`; use a deny rule for an unconditi
 block.
 
 Every finding includes its rule, effect, matched policy value, and explanation.
+An allowlist miss uses the fixed marker `outside-allowlist` instead of copying the
+untrusted tool name or destination hostname into the finding.
 
 The same decision document can be rendered as JSON, Markdown, or a self-contained
 HTML report. Rendering never changes the underlying decision.

@@ -74,6 +74,25 @@ def test_allows_allowlisted_network_domain():
     assert evaluate_action(action, POLICY).decision == "allow"
 
 
+def test_rejects_network_action_with_both_url_and_domain():
+    action = {
+        "action_type": "network",
+        "url": "https://github.com/safe",
+        "domain": "exfil.webhook.site",
+    }
+    with pytest.raises(InputError, match="exactly one"):
+        evaluate_action(action, POLICY)
+
+
+def test_network_allowlist_miss_does_not_copy_hostname_to_reason():
+    hostname = "internal-project-name.example"
+    result = evaluate_action({"action_type": "network", "domain": hostname}, POLICY)
+
+    assert result.decision == "warn"
+    assert result.reasons[0].matched == "outside-allowlist"
+    assert hostname not in str(result.to_dict())
+
+
 def test_rejects_unknown_action_type():
     with pytest.raises(InputError, match="Unsupported"):
         evaluate_action({"action_type": "telepathy", "target": "demo"}, POLICY)

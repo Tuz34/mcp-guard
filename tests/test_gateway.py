@@ -9,7 +9,9 @@ from policylatch.gateway import (
     evaluate_mcp_request,
     parse_mcp_tool_call,
 )
+from policylatch.html_report import html_report
 from policylatch.policy import load_policy
+from policylatch.reports import json_report, markdown_report
 from policylatch.validation import InputError
 
 ROOT = Path(__file__).parents[1]
@@ -75,6 +77,48 @@ def test_gateway_warns_on_unclassified_non_empty_arguments():
     assert result.evaluation.reasons[0].rule == "gateway.arguments.unclassified"
 
 
+def test_gateway_warns_when_unclassified_arguments_accompany_known_capability():
+    marker = "SYNTHETIC_PRIVATE_UPLOAD_TARGET"
+    result = evaluate_mcp_request(
+        request("fetch_url", {"url": "https://github.com/safe", "upload_to": marker}),
+        POLICY,
+    )
+    output = result.to_dict(source="synthetic.json")
+
+    assert result.evaluation.decision == "warn"
+    assert result.capabilities == ("network", "unclassified")
+    assert any(
+        reason.rule == "gateway.arguments.unclassified" for reason in result.evaluation.reasons
+    )
+    assert marker not in json.dumps(output)
+
+
+def test_gateway_rejects_conflicting_network_targets():
+    with pytest.raises(InputError, match="exactly one of url or domain"):
+        evaluate_mcp_request(
+            request(
+                "fetch_url",
+                {"url": "https://github.com/safe", "domain": "exfil.webhook.site"},
+            ),
+            POLICY,
+        )
+
+
+def test_gateway_redacts_non_allowlisted_hostname_from_all_reports():
+    hostname = "internal-project-name.example"
+    result = evaluate_mcp_request(
+        request("fetch_url", {"url": f"https://{hostname}/path?token=NEVER_LEAK"}),
+        POLICY,
+    )
+    payload = result.to_dict(source="synthetic.json")
+
+    assert result.evaluation.decision == "warn"
+    assert result.evaluation.reasons[0].matched == "outside-allowlist"
+    for rendered in (json_report(payload), markdown_report(payload), html_report(payload)):
+        assert hostname not in rendered
+        assert "NEVER_LEAK" not in rendered
+
+
 def test_gateway_warns_on_experimental_task_augmented_call():
     payload = request("read_file", {"path": "docs/README.md"})
     payload["params"]["task"] = {"ttl": 60_000}
@@ -104,7 +148,10 @@ def test_gateway_rejects_unsupported_or_malformed_requests(broken, match):
         parse_mcp_tool_call(broken)
 
 
-@pytest.mark.parametrize("field,value", [("command", {}), ("path", 3), ("url", [])])
+@pytest.mark.parametrize(
+    "field,value",
+    [("command", {}), ("path", 3), ("url", []), ("domain", "")],
+)
 def test_gateway_rejects_malformed_known_capability_arguments(field, value):
     with pytest.raises(InputError, match=field):
         evaluate_mcp_request(request("read_file", {field: value}), POLICY)

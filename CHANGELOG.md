@@ -66,6 +66,10 @@ green cross-platform CI run and final review.
 
 ### Fixed
 
+- Gateway checks now flag unknown top-level arguments even when a recognized
+  capability is present, and reject calls with two conflicting network targets.
+- Allowlist-miss findings no longer copy a raw destination hostname into JSON,
+  Markdown, HTML, or gateway replay output.
 - Verified Windows audit records now require the comparison provenance format
   `snapshot_comparison:<before-source>-><after-source>`; unmarked verified claims
   are rejected by `audit-append`.

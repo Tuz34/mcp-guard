@@ -31,7 +31,7 @@ def tool_name_reasons(name: str, rules: dict[str, Any]) -> list[Reason]:
             Reason(
                 "mcp_tools.allow_names",
                 "deny",
-                name,
+                "outside-allowlist",
                 "MCP tool name is not on the allow list.",
             )
         )

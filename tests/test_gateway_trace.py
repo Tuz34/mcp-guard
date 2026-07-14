@@ -83,3 +83,24 @@ def test_trace_rejects_empty_input(tmp_path):
 
     with pytest.raises(GatewayTraceError, match="at least one"):
         load_gateway_trace(path, POLICY)
+
+
+def test_trace_does_not_copy_non_allowlisted_hostname(tmp_path):
+    hostname = "internal-project-name.example"
+    payload = {
+        "jsonrpc": "2.0",
+        "id": "network-1",
+        "method": "tools/call",
+        "params": {
+            "name": "fetch_url",
+            "arguments": {"url": f"https://{hostname}/private"},
+        },
+    }
+    path = tmp_path / "network.jsonl"
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    results = load_gateway_trace(path, POLICY)
+    document = gateway_trace_document(results, source=str(path), policy="gateway-strict.yaml")
+
+    assert document["decision"] == "warn"
+    assert hostname not in json.dumps(document)

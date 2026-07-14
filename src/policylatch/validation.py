@@ -29,10 +29,15 @@ def validate_action(action: dict[str, Any]) -> None:
         for field in ("url", "domain"):
             if field in action and not isinstance(action[field], str):
                 raise InputError(f"action.{field} must be a string when provided.")
-        url = action.get("url")
-        domain = action.get("domain")
-        if not any(isinstance(value, str) and value.strip() for value in (url, domain)):
-            raise InputError("Network actions require a non-empty action.url or action.domain.")
+        network_fields = [
+            field
+            for field in ("url", "domain")
+            if isinstance(action.get(field), str) and action[field].strip()
+        ]
+        if len(network_fields) != 1:
+            raise InputError(
+                "Network actions must provide exactly one of action.url or action.domain."
+            )
     else:
         _required_text(action, required_field, "action")
     for optional in ("actor", "tool"):
