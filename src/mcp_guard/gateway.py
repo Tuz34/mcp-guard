@@ -149,11 +149,10 @@ def evaluate_mcp_request(request: dict[str, Any], policy: dict[str, Any]) -> Gat
             )
         )
 
-    # Argument projections must only contribute explicit findings. Gateway-level
+    # Argument projections contribute only their explicit findings. Gateway-level
     # allow-list/default handling is applied once after all projections are checked.
-    argument_policy = {**policy, "default_decision": "allow"}
     for action in actions:
-        reasons.extend(evaluate_action(action, argument_policy).reasons)
+        reasons.extend(evaluate_action(action, policy).reasons)
 
     allowed_by_name = tool_name_is_allowed(call.name, mcp_rules)
     base_decision = "allow" if allowed_by_name else default_decision(policy)
