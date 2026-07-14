@@ -52,21 +52,21 @@ def call(request_id, name, arguments):
     }
 
 
-def config():
+def config(*extra_argv):
     return UpstreamConfig(
         server_id="synthetic-fake",
-        argv=(sys.executable, str(FAKE_SERVER)),
+        argv=(sys.executable, str(FAKE_SERVER), *extra_argv),
         cwd=str(ROOT),
     )
 
 
-def run_session(client_input, timeout=2, approval_provider=None):
+def run_session(client_input, timeout=2, approval_provider=None, upstream_config=None):
     output = io.BytesIO()
     summary = run_stdio_gateway(
         client_input,
         output,
         POLICY,
-        config(),
+        upstream_config or config(),
         timeout_seconds=timeout,
         enabled=True,
         approval_provider=approval_provider,
@@ -84,6 +84,7 @@ def test_allow_forwards_after_lifecycle_and_child_is_cleaned_up():
     assert payloads[-1]["result"]["content"][0]["text"] == "synthetic-upstream-ok"
     assert summary["forwarded"] == 3
     assert summary["blocked"] == 0
+    assert summary["response_clean"] == 1
     assert summary["child_cleaned_up"] is True
     assert marker not in json.dumps(summary)
 
@@ -162,6 +163,81 @@ def test_task_augmented_warning_is_not_approvable():
     assert payloads[-1]["error"]["data"]["decision"] == "warn"
     assert summary["approved"] == 0
     assert approval_output.getvalue() == ""
+
+
+def test_review_response_is_withheld_by_default_and_redacted():
+    marker = "unexpected.example.invalid"
+    summary, payloads = run_session(
+        initialize_messages(call("review-result", "read_file", {"path": "safe"})),
+        upstream_config=config("--result-mode", "review"),
+    )
+
+    assert payloads[-1]["error"]["code"] == -32043
+    assert payloads[-1]["error"]["data"]["decision"] == "warn"
+    assert marker not in json.dumps(payloads[-1])
+    assert summary["response_review"] == 1
+    assert summary["response_approved"] == 0
+
+
+def test_review_response_can_be_explicitly_approved_without_approval_leak():
+    approval_output = io.StringIO()
+    provider = TerminalApprovalProvider(
+        io.StringIO("approve\n"), approval_output, timeout_seconds=1
+    )
+    summary, payloads = run_session(
+        initialize_messages(call("review-approved", "read_file", {"path": "safe"})),
+        approval_provider=provider,
+        upstream_config=config("--result-mode", "review"),
+    )
+
+    assert "unexpected.example.invalid" in json.dumps(payloads[-1])
+    assert "unexpected.example.invalid" not in approval_output.getvalue()
+    assert summary["response_approved"] == 1
+
+
+def test_blocked_response_rejects_grant_and_never_reaches_client():
+    provider = TerminalApprovalProvider(
+        io.StringIO("grant 60 2\n"), io.StringIO(), timeout_seconds=1
+    )
+    summary, payloads = run_session(
+        initialize_messages(call("blocked-result", "read_file", {"path": "safe"})),
+        approval_provider=provider,
+        upstream_config=config("--result-mode", "block"),
+    )
+
+    assert payloads[-1]["error"]["code"] == -32043
+    assert "ignore previous" not in json.dumps(payloads)
+    assert summary["response_blocked"] == 1
+    assert summary["response_approved"] == 0
+
+
+@pytest.mark.parametrize("mode", ["oversized", "malformed", "notification"])
+def test_unsafe_upstream_response_fails_closed(mode):
+    summary, payloads = run_session(
+        initialize_messages(call(f"unsafe-{mode}", "read_file", {"path": "safe"})),
+        upstream_config=config("--result-mode", mode),
+    )
+
+    assert payloads[-1]["error"]["code"] == -32042
+    assert summary["protocol_errors"] == 1
+    assert summary["child_cleaned_up"] is True
+
+
+def test_duplicate_json_keys_and_non_finite_numbers_fail_closed():
+    prefix = initialize_messages().getvalue()
+    duplicate = (
+        b'{"jsonrpc":"2.0","id":"one","id":"two","method":"tools/call",'
+        b'"params":{"name":"read_file","arguments":{"path":"safe"}}}\n'
+    )
+    non_finite = (
+        b'{"jsonrpc":"2.0","id":"nan","method":"tools/call",'
+        b'"params":{"name":"read_file","arguments":{"unknown":NaN}}}\n'
+    )
+
+    for raw in (duplicate, non_finite):
+        summary, payloads = run_session(io.BytesIO(prefix + raw))
+        assert payloads[-1]["error"]["code"] == -32042
+        assert summary["protocol_errors"] == 1
 
 
 def test_protocol_error_before_initialize_is_local_and_closes_child():

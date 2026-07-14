@@ -31,6 +31,7 @@ class ApprovalRequest:
     document: dict[str, Any]
     request_fingerprint: str
     scope_fingerprint: str
+    grant_allowed: bool
 
 
 @dataclass(frozen=True)
@@ -84,12 +85,81 @@ def build_approval_request(
         "scope": {**scope, "scope_fingerprint": scope_fingerprint},
         "rules": sorted({reason.rule for reason in result.evaluation.reasons}),
         "timeout_seconds": timeout_seconds,
+        "grant_allowed": True,
     }
     request_fingerprint = _fingerprint("approval-request-v1", core)
     return ApprovalRequest(
         document={**core, "request_fingerprint": request_fingerprint},
         request_fingerprint=request_fingerprint,
         scope_fingerprint=scope_fingerprint,
+        grant_allowed=True,
+    )
+
+
+def build_result_approval_request(
+    request: dict[str, Any],
+    scan_report: dict[str, Any],
+    *,
+    upstream_fingerprint: str,
+    policy_hash: str,
+    timeout_seconds: float,
+) -> ApprovalRequest:
+    if scan_report.get("postflight_outcome") not in {"review", "block-next-step"}:
+        raise InputError("Result approval requires a review or block-next-step outcome.")
+    if not 0.05 <= timeout_seconds <= 300:
+        raise InputError("Approval request timeout is outside the bounded contract.")
+    if not _HASH.fullmatch(upstream_fingerprint) or not _HASH.fullmatch(policy_hash):
+        raise InputError("Approval request provenance fingerprints are invalid.")
+    correlation = scan_report.get("correlation")
+    receipt = scan_report.get("receipt")
+    if not isinstance(correlation, dict) or not isinstance(receipt, dict):
+        raise InputError("Result approval correlation is unavailable.")
+    result_fingerprint = correlation.get("result_fingerprint")
+    tool_fingerprint = correlation.get("tool_fingerprint")
+    receipt_fingerprint = receipt.get("receipt_fingerprint")
+    if not all(
+        isinstance(value, str) and _HASH.fullmatch(value)
+        for value in (result_fingerprint, tool_fingerprint, receipt_fingerprint)
+    ):
+        raise InputError("Result approval fingerprints are invalid.")
+    params = request.get("params")
+    semantic_request_fingerprint = _fingerprint(
+        "approval-semantic-request-v1",
+        {"method": "tools/call", "params": params if isinstance(params, dict) else {}},
+    )
+    scope = {
+        "upstream_fingerprint": upstream_fingerprint,
+        "policy_hash": policy_hash,
+        "tool_fingerprint": tool_fingerprint,
+        "capabilities": ["tool-result"],
+        "target_class": "tool-result",
+        "semantic_request_fingerprint": semantic_request_fingerprint,
+        "result_fingerprint": result_fingerprint,
+        "result_receipt_fingerprint": receipt_fingerprint,
+    }
+    scope_fingerprint = _fingerprint("result-approval-scope-v1", scope)
+    grant_allowed = scan_report["postflight_outcome"] == "review"
+    core = {
+        "schema_version": 1,
+        "kind": "approval_request",
+        "decision": scan_report.get("decision"),
+        "scope": {**scope, "scope_fingerprint": scope_fingerprint},
+        "rules": sorted(
+            {
+                reason["rule"]
+                for reason in scan_report.get("reasons", [])
+                if isinstance(reason, dict) and isinstance(reason.get("rule"), str)
+            }
+        ),
+        "timeout_seconds": timeout_seconds,
+        "grant_allowed": grant_allowed,
+    }
+    request_fingerprint = _fingerprint("result-approval-request-v1", core)
+    return ApprovalRequest(
+        document={**core, "request_fingerprint": request_fingerprint},
+        request_fingerprint=request_fingerprint,
+        scope_fingerprint=scope_fingerprint,
+        grant_allowed=grant_allowed,
     )
 
 
@@ -238,6 +308,8 @@ class TerminalApprovalProvider:
         except InputError:
             return ApprovalOutcome(False, "invalid-response")
         if parsed.approved and parsed.grant_max_uses:
+            if not approval.grant_allowed:
+                return ApprovalOutcome(False, "grant-not-allowed")
             self._grants.add(
                 approval.scope_fingerprint,
                 now=self._clock(),

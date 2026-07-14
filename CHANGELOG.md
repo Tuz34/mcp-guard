@@ -26,6 +26,9 @@ green cross-platform CI run and final review.
   allow-only forwarding, closed warn/deny behavior, and deterministic cleanup.
 - Explicit warn-only terminal approvals plus data-minimized JSON contracts and
   in-memory grants bounded by exact semantic scope, TTL, and future-use count.
+- Runtime post-flight enforcement for correlated MCP tool results/errors, with
+  clean-only default forwarding, scoped review approval, one-shot blocked-result
+  approval, strict JSON parsing, and redacted local failures.
 - Deterministic before/after policy simulation over shared synthetic fixtures,
   with all decision transitions, configurable relaxation gates, redacted
   receipts/provenance, rule-change heuristics, and counterexample suggestions.

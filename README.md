@@ -390,8 +390,10 @@ MCP client -> local gateway -> policy decision -> approval or deny -> MCP server
 `gateway-check` and `gateway-replay` always report `forwarded: false`.
 Experimental `gateway-stdio` wraps one explicit argv without a shell, forwards
 only `allow`, keeps `warn` and `deny` local, bounds messages/timeouts, and cleans
-up the child on failure. It is opt-in and currently validated only against the
-bundled synthetic server. Calls routed around it cannot be observed or blocked.
+up the child on failure. Correlated tool results/errors pass through the
+[runtime response gate](docs/runtime-response-gate.md) before reaching the
+client. It is opt-in and currently validated only against the bundled synthetic
+server. Calls routed around it cannot be observed or blocked.
 
 ## Agent and CI integration
 
@@ -533,9 +535,8 @@ types, fixtures, and false-positive tests are welcome.
   trace replay, an opt-in fail-closed stdio gateway, explicit tool rules, opt-in
   Windows audit snapshots/history, SARIF, the reusable GitHub Action, and thin
   review-first Claude Code/Codex hook adapters.
-- **Next gateway milestone:** Scoped local approvals and a post-flight response
-  gate before reviewed upstream results return to the client.
-- **Later:** Workspace baselines, Git diff gates, and an optional policy
+- **Next gateway milestone:** Bounded workspace baselines and Git diff gates.
+- **Later:** Runtime tool-metadata policy and an optional policy
   adapter such as OPA/Rego.
 
 The PolicyLatch name is approved and the compatibility migration is under review.

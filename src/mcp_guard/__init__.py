@@ -33,6 +33,7 @@ _MODULES = (
     "reports",
     "result_scanner",
     "runtime_gateway",
+    "runtime_response",
     "sarif_report",
     "schemas",
     "scanners",

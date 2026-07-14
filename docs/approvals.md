@@ -62,5 +62,5 @@ is rejected.
 Approval does not make PolicyLatch a host sandbox. Calls routed directly to the
 MCP server bypass the gateway. Anyone who can replace the reviewed upstream
 config or policy is already outside this boundary. Upstream result content is a
-separate post-flight decision and is not trusted merely because a call was
-approved.
+separate post-flight decision; approving a call does not approve its response.
+`block-next-step` responses never receive reusable grants.

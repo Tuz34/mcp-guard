@@ -136,11 +136,11 @@ production policy.
 
 With `--interactive-approval`, a `warn` may be approved once or by a bounded
 in-memory session grant. Missing console input, timeout, or ambiguity denies;
-`deny` is never overridable. See [scoped approvals](approvals.md). The stdio
-command does not scan or classify upstream response content yet; that is a
-separate post-flight gate. It also does not support HTTP/SSE, TLS interception,
-automatic client reconfiguration, background monitoring, task-augmented calls,
-or arbitrary MCP extension methods.
+`deny` is never overridable. See [scoped approvals](approvals.md). Correlated
+`tools/call` results and errors pass through the
+[runtime response gate](runtime-response-gate.md) before forwarding. The command
+does not support HTTP/SSE, TLS interception, automatic client reconfiguration,
+background monitoring, task-augmented calls, or arbitrary MCP extension methods.
 
 Only calls routed through `gateway-stdio` can be observed or blocked. Direct MCP
 client-to-server configuration remains a complete bypass. The session summary is

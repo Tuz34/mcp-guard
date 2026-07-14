@@ -73,6 +73,7 @@ The code has no passive/transparent mode. Dry-run results always say
 |---|---|---|
 | Gateway bypass through a direct server configuration | Clearly documented limitation | Adapter/doctor must show the effective command and warn about unguarded alternate configs. |
 | Prompt injection or poisoned tool description | Static manifest warnings; policy is not generated from descriptions | Never let tool prose alter policy or approval state. |
+| Prompt injection in tool output | Correlated `tools/call` results/errors pass through the deterministic post-flight scanner | Keep dynamic tool metadata and non-tool responses outside any safety claim. |
 | Unknown or smuggled argument shape | Known keys are type checked; any unknown top-level argument returns `warn` and is not forwarded | Bind every enforced tool to its reviewed input schema or explicit argument mapping. |
 | Tool-name confusion | Complete case-insensitive glob matching | Bind policy to an explicit upstream server identity as well as tool name. |
 | Confused deputy across servers with the same tool name | Explicit upstream fingerprint is paired with the policy hash in the session summary | Bind future approvals to both fingerprints; never share approval solely by tool name. |

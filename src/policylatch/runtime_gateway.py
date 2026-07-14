@@ -10,9 +10,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from .approval import TerminalApprovalProvider, build_approval_request
+from .approval import (
+    TerminalApprovalProvider,
+    build_approval_request,
+    build_result_approval_request,
+)
 from .gateway import MAX_GATEWAY_REQUEST_BYTES, evaluate_mcp_request
 from .receipts import canonical_json, canonical_policy_hash
+from .runtime_response import scan_mcp_tool_response
 from .validation import InputError
 
 MAX_UPSTREAM_ARGV = 32
@@ -156,12 +161,29 @@ def _parse_json_line(raw: bytes, label: str) -> dict[str, Any]:
     if not raw.endswith(b"\n"):
         raise RuntimeGatewayError(f"{label} is not newline-delimited.")
     try:
-        data = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+        data = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_unique_object,
+            parse_constant=_reject_json_constant,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as exc:
         raise RuntimeGatewayError(f"{label} is not a valid bounded UTF-8 JSON object.") from exc
     if not isinstance(data, dict):
         raise RuntimeGatewayError(f"{label} must be a JSON object.")
     return data
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON object key")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"unsupported JSON constant: {value}")
 
 
 def _request_id(message: dict[str, Any]) -> str | int | None:
@@ -271,7 +293,6 @@ def _local_error(
 
 def _read_correlated_response(
     reader: _LineReader,
-    client_output: BinaryIO,
     request_id: str | int | None,
     timeout_seconds: float,
 ) -> dict[str, Any]:
@@ -283,8 +304,9 @@ def _read_correlated_response(
         if response.get("jsonrpc") != "2.0":
             raise RuntimeGatewayError("Upstream response must use JSON-RPC 2.0.")
         if "method" in response and "id" not in response:
-            _write_message(client_output, response, timeout_seconds=timeout_seconds)
-            continue
+            raise RuntimeGatewayError(
+                "Upstream notifications are unsupported by the sequential gateway."
+            )
         if response.get("id") != request_id:
             raise RuntimeGatewayError("Upstream response id does not match the request.")
         if ("result" in response) == ("error" in response):
@@ -366,6 +388,10 @@ def run_stdio_gateway(
         "blocked": 0,
         "approved": 0,
         "grant_reuses": 0,
+        "response_clean": 0,
+        "response_review": 0,
+        "response_blocked": 0,
+        "response_approved": 0,
         "control_messages": 0,
         "protocol_errors": 0,
         "stderr_truncated": False,
@@ -456,11 +482,51 @@ def run_stdio_gateway(
                     if method == "notifications/initialized":
                         state = "ready"
                     continue
-                response = _read_correlated_response(
-                    reader, client_output, request_id, timeout_seconds
-                )
+                response = _read_correlated_response(reader, request_id, timeout_seconds)
                 if method == "initialize":
                     _validate_initialize_response(response)
+                if method == "tools/call":
+                    try:
+                        scan_report = scan_mcp_tool_response(message, response)
+                    except InputError as exc:
+                        raise RuntimeGatewayError(
+                            "Upstream tool response failed the bounded post-flight contract."
+                        ) from exc
+                    outcome = scan_report["postflight_outcome"]
+                    if outcome == "clean":
+                        summary["response_clean"] += 1
+                    else:
+                        summary["response_review"] += int(outcome == "review")
+                        summary["response_blocked"] += int(outcome == "block-next-step")
+                        response_approved = False
+                        if approval_provider is not None:
+                            try:
+                                approval = build_result_approval_request(
+                                    message,
+                                    scan_report,
+                                    upstream_fingerprint=summary["upstream_fingerprint"],
+                                    policy_hash=summary["policy_hash"],
+                                    timeout_seconds=approval_provider.timeout_seconds,
+                                )
+                            except InputError as exc:
+                                raise RuntimeGatewayError(
+                                    "Result approval could not be safely data-minimized."
+                                ) from exc
+                            response_approved = approval_provider.authorize(approval).approved
+                        if not response_approved:
+                            _write_message(
+                                client_output,
+                                _local_error(
+                                    request_id,
+                                    code=-32043,
+                                    message="PolicyLatch withheld an untrusted MCP tool response.",
+                                    decision=scan_report["decision"],
+                                    rules=[reason["rule"] for reason in scan_report["reasons"]],
+                                ),
+                                timeout_seconds=timeout_seconds,
+                            )
+                            continue
+                        summary["response_approved"] += 1
                 _write_message(client_output, response, timeout_seconds=timeout_seconds)
                 if method == "initialize":
                     state = "initialized"
