@@ -112,14 +112,19 @@ def validate_journal_entry(entry: dict[str, Any]) -> dict[str, Any]:
     ):
         raise InputError("Journal entry rule_ids must be an array of strings.")
     budget_facts = entry.get("budget_facts")
-    if not isinstance(budget_facts, dict) or set(budget_facts) != {
+    legacy_budget_fields = {
         "action_type",
         "confirmation",
         "impact",
         "payload_size_class",
         "target_fingerprint",
         "tool_fingerprint",
-    }:
+    }
+    current_budget_fields = legacy_budget_fields | {"action_fingerprint"}
+    if not isinstance(budget_facts, dict) or set(budget_facts) not in (
+        legacy_budget_fields,
+        current_budget_fields,
+    ):
         raise InputError("Journal entry budget_facts are invalid.")
     if budget_facts["action_type"] not in {
         "file",
@@ -136,8 +141,8 @@ def validate_journal_entry(entry: dict[str, Any]) -> dict[str, Any]:
         isinstance(impact, bool) or not isinstance(impact, (int, float)) or impact < 0
     ):
         raise InputError("Journal entry impact is invalid.")
-    for field in ("target_fingerprint", "tool_fingerprint"):
-        value = budget_facts[field]
+    for field in ("action_fingerprint", "target_fingerprint", "tool_fingerprint"):
+        value = budget_facts.get(field)
         if value is not None and (not isinstance(value, str) or not _FINGERPRINT.fullmatch(value)):
             raise InputError(f"Journal entry {field} is invalid.")
     duplicate = entry.get("duplicate")
@@ -200,14 +205,26 @@ def load_journal(path: str | Path, *, missing_ok: bool = False) -> list[dict[str
 
 
 def _prior_duplicate(
-    records: list[dict[str, Any]], request_id: str, at: datetime, window_seconds: int
+    records: list[dict[str, Any]],
+    request_id: str,
+    at: datetime,
+    window_seconds: int,
+    action_fingerprint: str | None = None,
 ) -> dict[str, Any] | None:
     earliest = at - timedelta(seconds=window_seconds)
     matches = []
     for record in records:
         _, recorded_at = _timestamp(record["recorded_at"])
-        if record["request_id"] == request_id and earliest <= recorded_at <= at:
-            matches.append((recorded_at, record))
+        if record["request_id"] != request_id or not earliest <= recorded_at <= at:
+            continue
+        prior_action_fingerprint = record["budget_facts"].get("action_fingerprint")
+        if (
+            action_fingerprint is not None
+            and prior_action_fingerprint is not None
+            and prior_action_fingerprint != action_fingerprint
+        ):
+            continue
+        matches.append((recorded_at, record))
     return max(matches, key=lambda item: item[0])[1] if matches else None
 
 
@@ -235,6 +252,7 @@ def journal_entry_from_report(
     budget_facts = report.get("budget_facts")
     if budget_facts is None:
         budget_facts = {
+            "action_fingerprint": None,
             "action_type": "unknown",
             "confirmation": "unknown",
             "impact": None,
@@ -245,7 +263,13 @@ def journal_entry_from_report(
     if not isinstance(budget_facts, dict):
         raise InputError("Journal input report budget_facts must be an object.")
     request_id = receipt["request"]["fingerprint"]
-    prior = _prior_duplicate(records, request_id, parsed_at, window_seconds)
+    prior = _prior_duplicate(
+        records,
+        request_id,
+        parsed_at,
+        window_seconds,
+        budget_facts.get("action_fingerprint"),
+    )
     entry = {
         "schema_version": 1,
         "kind": "agent_action_audit",
@@ -360,6 +384,9 @@ def replay_check_document(
         receipt["request"]["fingerprint"],
         parsed_at,
         window_seconds,
+        report.get("budget_facts", {}).get("action_fingerprint")
+        if isinstance(report.get("budget_facts"), dict)
+        else None,
     )
     duplicate = prior is not None
     return {

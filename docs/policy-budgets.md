@@ -19,7 +19,11 @@ budgets:
 Metrics are `calls`, numeric `impact`, and `unique_targets`. Rules can scope by
 action type, the current tool fingerprint, and payload-size classes
 (`small`/`medium`/`large`). Retries count by default so duplicate submission does
-not bypass a cap.
+not bypass a cap. With `count_duplicates: false`, PolicyLatch recomputes
+duplicate identity from a value-aware, one-way action fingerprint: identical
+retries count once, while different commands or targets still count separately.
+Legacy records without that fingerprint make the budget state `unknown` and
+deny instead of silently reducing usage.
 
 ## Reservation-first workflow
 
@@ -57,6 +61,6 @@ An action may provide explicit budget metadata:
 ```
 
 The exact numeric impact is deliberately journaled because cumulative arithmetic
-requires it. Payload bytes are reduced to a size class; target and tool IDs are
-SHA-256 fingerprints. Raw action commands, paths, domains, target IDs, prompts,
-secrets, and payloads are never written to the journal.
+requires it. Payload bytes are reduced to a size class; action identity, target,
+and tool IDs are SHA-256 fingerprints. Raw action commands, paths, domains,
+target IDs, prompts, secrets, and payloads are never written to the journal.

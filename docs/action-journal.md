@@ -15,8 +15,10 @@ policylatch journal-append \
 
 Each record contains stable request/event fingerprints, receipt and policy
 hashes, decision, evaluator version, rule IDs, normalized UTC time, and replay
-metadata. It can also carry explicit numeric impact plus redacted tool/target and
-payload-size budget facts. Lifecycle stages are `proposed`, `evaluated`, and `observed-result`.
+metadata. Action evaluations also carry a one-way, value-aware action
+fingerprint plus explicit numeric impact, redacted tool/target, and payload-size
+budget facts. Raw action values are hashed in memory and are never written.
+Lifecycle stages are `proposed`, `evaluated`, and `observed-result`.
 They are caller assertions; every record remains `verification_state:
 unverified`, and an observed-result record stores no result body.
 
@@ -33,11 +35,13 @@ policylatch journal-check \
   --window-seconds 300
 ```
 
-A matching redacted request fingerprint inside the window produces `warn`.
+A matching redacted request fingerprint and, for action evaluations, matching
+value-aware action fingerprint inside the window produces `warn`.
 When the journal does not exist, PolicyLatch does not pretend the action is new:
 it returns `warn` with `status: source-unavailable` and does not create a file.
-Because request fingerprints are privacy-minimized shapes, a duplicate is a
-review signal rather than proof that two raw requests were byte-identical.
+Legacy or non-action records without a value-aware fingerprint retain the
+conservative shape-based comparison. A duplicate remains a review signal rather
+than proof that two raw requests were byte-identical.
 
 ## Static reports
 

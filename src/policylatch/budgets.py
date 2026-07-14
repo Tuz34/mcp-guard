@@ -27,6 +27,20 @@ def _fingerprint(label: str, value: str) -> str:
     return f"sha256:{digest}"
 
 
+def _action_fingerprint(action: dict[str, Any]) -> str:
+    projection = {
+        "contract": "budget-action-v1",
+        "action_type": str(action["action_type"]).casefold(),
+        "values": {
+            field: action[field]
+            for field in ("actor", "tool", "command", "cwd", "path", "url", "domain")
+            if field in action
+        },
+        "budget": action.get("budget", {}),
+    }
+    return _fingerprint("budget-action", canonical_json(projection))
+
+
 def action_budget_facts(action: dict[str, Any]) -> dict[str, Any]:
     validate_action(action)
     budget = action.get("budget") if isinstance(action.get("budget"), dict) else {}
@@ -42,6 +56,7 @@ def action_budget_facts(action: dict[str, Any]) -> dict[str, Any]:
     target = budget.get("target_id")
     tool = action.get("tool")
     return {
+        "action_fingerprint": _action_fingerprint(action),
         "action_type": str(action["action_type"]).casefold(),
         "confirmation": budget.get("confirmation", "unknown"),
         "impact": budget.get("impact"),
@@ -190,6 +205,7 @@ def budget_check_document(
         earliest = current_time - timedelta(seconds=_WINDOW_SECONDS[config["window"]])
         candidates = []
         unknown_message = None
+        seen_action_fingerprints: set[str] = set()
         for record in records:
             if record["stage"] != "proposed":
                 continue
@@ -215,8 +231,17 @@ def budget_check_document(
                     break
                 if facts["payload_size_class"] not in payload_classes:
                     continue
-            if not config.get("count_duplicates", True) and record["duplicate"]["detected"]:
-                continue
+            if not config.get("count_duplicates", True):
+                action_fingerprint = facts.get("action_fingerprint")
+                if action_fingerprint is None:
+                    unknown_message = (
+                        "Duplicate-exclusion budget state is missing a value-aware action "
+                        "fingerprint."
+                    )
+                    break
+                if action_fingerprint in seen_action_fingerprints:
+                    continue
+                seen_action_fingerprints.add(action_fingerprint)
             candidates.append(record)
 
         reasons: list[dict[str, str]] = []

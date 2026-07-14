@@ -95,6 +95,9 @@ green cross-platform CI run and final review.
 
 ### Fixed
 
+- Made duplicate-excluding policy budgets use a value-aware, one-way action
+  fingerprint instead of the journal's privacy-minimized request shape; distinct
+  actions now count separately and legacy ambiguous state fails closed.
 - Gateway checks now flag unknown top-level arguments even when a recognized
   capability is present, and reject calls with two conflicting network targets.
 - Allowlist-miss findings no longer copy a raw destination hostname into JSON,

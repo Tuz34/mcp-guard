@@ -5,7 +5,7 @@ import pytest
 
 from policylatch.budgets import action_budget_facts, budget_check_document
 from policylatch.cli import main
-from policylatch.journal import append_journal
+from policylatch.journal import _event_core, _hash, append_journal
 from policylatch.policy import PolicyError, load_policy
 from policylatch.validation import InputError, validate_action
 
@@ -51,7 +51,9 @@ def test_budget_facts_are_data_minimized():
     assert facts["confirmation"] == "confirmed"
     assert facts["impact"] == 4
     assert facts["payload_size_class"] == "small"
+    assert facts["action_fingerprint"].startswith("sha256:")
     assert facts["target_fingerprint"].startswith("sha256:")
+    assert "synthetic-budget-demo" not in rendered
     assert "synthetic-target" not in rendered
     assert "synthetic_shell" not in rendered
 
@@ -80,6 +82,91 @@ def test_per_action_and_cumulative_budgets_count_retries(tmp_path):
     assert by_name["hourly_shell_calls"]["status"] == "exceeded"
     assert by_name["daily_shell_impact"]["usage"] == 12
     assert by_name["daily_shell_impact"]["decision"] == "warn"
+
+
+def test_duplicate_exclusion_counts_distinct_actions_and_omits_actual_retries(tmp_path):
+    policy_path = tmp_path / "no-duplicates.yaml"
+    policy_path.write_text(
+        """version: 1
+default_decision: allow
+budgets:
+  shell_calls:
+    metric: calls
+    limit: 2
+    window: hour
+    effect: deny
+    action_types: [shell]
+    count_duplicates: false
+""",
+        encoding="utf-8",
+    )
+    policy = load_policy(policy_path)
+    journal = tmp_path / "audit.jsonl"
+    reports = []
+    for index in range(3):
+        action = json.loads(BUDGET_ACTION.read_text(encoding="utf-8"))
+        action["command"] = f"echo synthetic-distinct-{index}"
+        action["budget"]["target_id"] = f"synthetic-target-{index}"
+        action_path = tmp_path / f"action-{index}.json"
+        action_path.write_text(json.dumps(action), encoding="utf-8")
+        _, report = make_report(
+            tmp_path,
+            action_path=action_path,
+            policy_path=policy_path,
+            name=f"report-{index}.json",
+        )
+        reports.append(report)
+
+    reserve(journal, reports[0], "2026-07-14T10:00:00Z")
+    retry = reserve(journal, reports[0], "2026-07-14T10:01:00Z")
+    assert retry["duplicate"]["detected"] is True
+    reserve(journal, reports[1], "2026-07-14T10:02:00Z")
+    third = reserve(journal, reports[2], "2026-07-14T10:03:00Z")
+    output = budget_check_document(
+        reports[2], policy, "no-duplicates.yaml", journal, third["event_id"]
+    )
+
+    assert output["decision"] == "deny"
+    assert output["results"][0]["usage"] == 3
+    assert output["results"][0]["status"] == "exceeded"
+    journal_text = journal.read_text(encoding="utf-8")
+    assert "synthetic-distinct" not in journal_text
+    assert "synthetic-target" not in journal_text
+
+
+def test_duplicate_exclusion_fails_closed_for_legacy_ambiguous_record(tmp_path):
+    policy_path = tmp_path / "no-duplicates.yaml"
+    policy_path.write_text(
+        """version: 1
+default_decision: allow
+budgets:
+  shell_calls:
+    metric: calls
+    limit: 2
+    window: hour
+    action_types: [shell]
+    count_duplicates: false
+""",
+        encoding="utf-8",
+    )
+    _, report = make_report(tmp_path, policy_path=policy_path)
+    journal = tmp_path / "audit.jsonl"
+    reservation = reserve(journal, report, "2026-07-14T10:00:00Z")
+    reservation["budget_facts"].pop("action_fingerprint")
+    reservation["event_id"] = _hash(_event_core(reservation))
+    journal.write_text(json.dumps(reservation, separators=(",", ":")) + "\n", encoding="utf-8")
+
+    output = budget_check_document(
+        report,
+        load_policy(policy_path),
+        "no-duplicates.yaml",
+        journal,
+        reservation["event_id"],
+    )
+
+    assert output["decision"] == "deny"
+    assert output["status"] == "unknown"
+    assert "value-aware action fingerprint" in output["results"][0]["reasons"][0]["message"]
 
 
 @pytest.mark.parametrize("state", ["missing", "corrupt"])

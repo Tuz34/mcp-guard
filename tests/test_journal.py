@@ -138,6 +138,33 @@ def test_exact_event_replay_is_rejected(tmp_path):
         )
 
 
+def test_value_aware_action_fingerprint_does_not_merge_distinct_actions(tmp_path):
+    _, first_report, _ = make_report(tmp_path, "SYNTHETIC_ACTION_ALPHA")
+    _, second_report, _ = make_report(tmp_path, "SYNTHETIC_ACTION_BETA")
+    first = journal_entry_from_report(
+        first_report,
+        [],
+        stage="proposed",
+        recorded_at="2026-07-14T10:00:00Z",
+        window_seconds=300,
+    )
+    second = journal_entry_from_report(
+        second_report,
+        [first],
+        stage="proposed",
+        recorded_at="2026-07-14T10:01:00Z",
+        window_seconds=300,
+    )
+
+    assert first["request_id"] == second["request_id"]
+    assert (
+        first["budget_facts"]["action_fingerprint"] != second["budget_facts"]["action_fingerprint"]
+    )
+    assert second["duplicate"]["detected"] is False
+    assert "SYNTHETIC_ACTION_ALPHA" not in json.dumps(first)
+    assert "SYNTHETIC_ACTION_BETA" not in json.dumps(second)
+
+
 def test_replay_check_without_source_is_explicit_unknown(tmp_path):
     report_path, _, _ = make_report(tmp_path)
     missing = tmp_path / "missing.jsonl"
